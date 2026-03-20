@@ -1,24 +1,23 @@
-class ApiError extends Error {
-    constructor(
-        statusCode,
-        message= "Something went wrong",
-        errors = [],
-        stack = ""
-    ){
-        super(message)
-        this.statusCode = statusCode
-        this.data = null
-        this.message = message
-        this.success = false;
-        this.errors = errors
+class ApiResponse {
+    constructor(statusCode, data, message = "Success") {
+        this.statusCode = statusCode;
+        this.data = data;
+        this.message = message;
+        this.success = statusCode < 400;
+        this.timestamp = new Date().toISOString();
+    }
 
-        if (stack) {
-            this.stack = stack
-        } else{
-            Error.captureStackTrace(this, this.constructor)
-        }
+    static success(data, message = "Success") {
+        return new ApiResponse(200, data, message);
+    }
 
+    static created(data, message = "Resource created successfully") {
+        return new ApiResponse(201, data, message);
+    }
+
+    static noContent(message = "No content") {
+        return new ApiResponse(204, null, message);
     }
 }
 
-export {ApiError}
+module.exports = ApiResponse;
