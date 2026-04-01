@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema({
     recipient: {
@@ -122,4 +122,6 @@ notificationSchema.statics.getUnreadCount = async function(userId) {
     return this.countDocuments({ recipient: userId, isRead: false });
 };
 
-module.exports = mongoose.model('Notification', notificationSchema);
+const Notification = mongoose.model('Notification', notificationSchema);
+
+export default Notification;

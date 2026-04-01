@@ -1,17 +1,25 @@
-const express = require("express");
+import express from 'express';
+import { verifyJWT } from '../middleware/authMiddleware.js';
+import { upload } from '../middleware/uploadMiddleware.js';
+import {
+    createPost,
+    getFeed,
+    toggleLike,
+    addComment,
+    deletePost
+} from '../controllers/postController.js';
+
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
 
-const {
-  createPost,
-  getFeed,
-  likePost,
-  commentPost,
-} = require("../controllers/postController");
+router.use(verifyJWT);
 
-router.post("/", protect, createPost);
-router.get("/", protect, getFeed);
-router.post("/like/:id", protect, likePost);
-router.post("/comment/:id", protect, commentPost);
+router.post('/', createPost);
+router.post('/', upload.single('image'), createPost);
 
-module.exports = router;
+console.log("Post routes loaded")
+router.get('/feed', getFeed);
+router.post('/:postId/like', toggleLike);
+router.post('/:postId/comment', addComment);
+router.delete('/:postId', deletePost);
+
+export default router;

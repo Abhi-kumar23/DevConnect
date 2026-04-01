@@ -1,11 +1,11 @@
-const mongoose = require('mongoose');
-const Comment = require('../models/Comment');
-const Post = require('../models/Post');
-const Like = require('../models/Like');
-const Notification = require('../models/Notification');
-const ApiError = require('../utils/ApiError');
-const ApiResponse = require('../utils/ApiResponse');
-const asyncHandler = require('../utils/asyncHandler');
+ import mongoose from 'mongoose';
+ import Comment from '../models/Comment';
+ import Post from '../models/Post';
+ import Like from '../models/Like';
+ import Notification from '../models/Notification';
+ import ApiError from '../utils/ApiError';
+ import ApiResponse from '../utils/ApiResponse';
+ import asyncHandler from '../utils/asyncHandler';
 
 /**
  * @desc    Get all comments for a post
@@ -344,7 +344,7 @@ const addReply = asyncHandler(async (req, res) => {
     );
 });
 
-module.exports = {
+export {
     getPostComments,
     addComment,
     updateComment,

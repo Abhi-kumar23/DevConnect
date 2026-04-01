@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema({
     firstName: {
@@ -100,21 +100,14 @@ userSchema.virtual('postsCount', {
     count: true
 });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        
-        if (this.isModified('password') && !this.isNew) {
-            this.passwordChangedAt = Date.now() - 1000;
-        }
-        
-        next();
-    } catch (error) {
-        next(error);
+userSchema.pre('save', async function() {
+    if (!this.isModified('password')) return;
+
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+
+    if (!this.isNew) {
+        this.passwordChangedAt = Date.now() - 1000;
     }
 });
 
@@ -161,7 +154,9 @@ userSchema.methods.createEmailVerificationToken = function() {
 };
 
 // Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ firstName: 'text', lastName: 'text' });
+// userSchema.index({ email: 1 });
+// userSchema.index({ firstName: 'text', lastName: 'text' });
 
-module.exports = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
+
+export default User;

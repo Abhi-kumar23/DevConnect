@@ -1,17 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
-const { validate, idValidation } = require('../middleware/validationMiddleware');
-const {
+import express from 'express';
+import { validate, idValidation } from '../middleware/validationMiddleware.js';
+import {
     togglePostLike,
     toggleCommentLike,
     getLikedPosts,
     getLikeStatus,
     getPostLikers
-} = require('../controllers/likeController');
+} from '../controllers/likeController.js';
 
-// All routes require authentication
-router.use(protect);
+const router = express.Router();
+
 
 // Toggle likes
 router.post('/post/:postId',
@@ -37,4 +35,4 @@ router.get('/post/:postId/users',
     getPostLikers
 );
 
-module.exports = router;
+export default router;

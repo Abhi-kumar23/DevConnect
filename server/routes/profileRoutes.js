@@ -1,40 +1,33 @@
-const express = require("express");
+// routes/profileRoutes.js
+import express from 'express';
+import { verifyJWT } from '../middleware/authMiddleware.js';
+import { upload } from '../middleware/uploadMiddleware.js';
+import {
+    createOrUpdateProfile,
+    getMyProfile,
+    uploadProfilePic,
+    deleteProfile,
+    getProfileByUserId,
+    getAllProfiles,
+    searchUsers,
+} from '../controllers/profileController.js';
+
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
 
-const {
-  createOrUpdateProfile,
-  getMyProfile,
-  deleteProfile,
-  getProfileByUserId,
-  getAllProfiles,
-  uploadProfilePic,
-  searchUsers
-} = require("../controllers/profileController");
+// Public routes
+router.get('/all', getAllProfiles);
+router.get('/search', searchUsers);
+router.get('/user/:userId', getProfileByUserId);
 
-const multer = require("multer");
+// Protected routes (require authentication)
+router.use(verifyJWT);
 
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/"); // make sure this folder exists
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${req.user._id}_${Date.now()}_${file.originalname}`);
-  }
-});
-const upload = multer({ storage });
+router.route('/')
+    .get(getMyProfile)
+    .post(createOrUpdateProfile)
+    .put(createOrUpdateProfile);
 
+router.post("/avatar", upload.single("avatar"), uploadProfilePic); 
+router.delete("/", deleteProfile); 
 
-// PRIVATE routes
-router.post("/", protect, createOrUpdateProfile);
-router.get("/me", protect, getMyProfile);
-router.delete("/", protect, deleteProfile);
-router.post("/picture", protect, upload.single("profilePic"), uploadProfilePic);
-
-// PUBLIC routes
-router.get("/:userId", getProfileByUserId);
-router.get("/", getAllProfiles);
-router.get("/search", searchUsers);
-
-module.exports = router;
+export default router;

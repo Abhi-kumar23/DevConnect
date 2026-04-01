@@ -1,12 +1,12 @@
-const mongoose = require('mongoose');
-const Like = require('../models/Like');
-const Post = require('../models/Post');
-const Comment = require('../models/Comment');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
-const ApiError = require('../utils/ApiError');
-const ApiResponse = require('../utils/ApiResponse');
-const asyncHandler = require('../utils/asyncHandler');
+import mongoose from 'mongoose';
+import Like from '../models/Like.js';
+import Post from '../models/Post.js';
+import Comment from '../models/Comment.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
+import ApiError from '../utils/ApiError.js';
+import ApiResponse from '../utils/ApiResponse.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 /**
  * @desc    Toggle like on post
@@ -288,7 +288,7 @@ const getPostLikers = asyncHandler(async (req, res) => {
     );
 });
 
-module.exports = {
+export{
     togglePostLike,
     toggleCommentLike,
     getLikedPosts,

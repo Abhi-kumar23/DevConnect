@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const chatSchema = new mongoose.Schema({
     participants: [{
@@ -45,9 +45,9 @@ const chatSchema = new mongoose.Schema({
 });
 
 // Indexes
-chatSchema.index({ participants: 1 });
-chatSchema.index({ lastMessageAt: -1 });
-chatSchema.index({ participants: 1, updatedAt: -1 });
+// chatSchema.index({ participants: 1 });
+// chatSchema.index({ lastMessageAt: -1 });
+// chatSchema.index({ participants: 1, updatedAt: -1 });
 
 // Ensure unique chat for two participants (not group)
 chatSchema.index({ participants: 1 }, { 
@@ -88,4 +88,6 @@ chatSchema.methods.resetUnreadCount = async function(userId) {
     await this.save();
 };
 
-module.exports = mongoose.model('Chat', chatSchema);
+const Chat = mongoose.model('Chat', chatSchema);
+
+export default Chat;

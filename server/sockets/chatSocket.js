@@ -1,5 +1,5 @@
-const Message = require("../models/Message");
-const Notification = require("../models/Notification");
+import mongoose from "mongoose";
+import Notification from "../models/Notification.js";
 
 const onlineUsers = new Map();
 
@@ -62,4 +62,4 @@ const initSocket = (io) => {
     });
 };
 
-module.exports = initSocket;
+export default initSocket;

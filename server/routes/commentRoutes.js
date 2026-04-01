@@ -1,18 +1,16 @@
-const express = require('express');
-const router = express.Router({ mergeParams: true });
-const { protect } = require('../middleware/authMiddleware');
-const { validate, commentValidation, idValidation } = require('../middleware/validationMiddleware');
-const {
+import express from 'express';
+import { validate, commentValidation, idValidation } from '../middleware/validationMiddleware.js';
+import {
     getPostComments,
     addComment,
     updateComment,
     deleteComment,
     toggleCommentLike,
     addReply
-} = require('../controllers/commentController');
+} from '../controllers/commentController.js';
 
-// All routes require authentication
-router.use(protect);
+const router = express.Router();
+
 
 // Get comments for a post and add comment
 router.route('/:postId')
@@ -57,4 +55,4 @@ router.post('/:commentId/reply',
     addReply
 );
 
-module.exports = router;
+export default router;

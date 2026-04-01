@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema({
     chat: {
@@ -113,4 +113,6 @@ messageSchema.statics.getUnreadCount = async function(chatId, userId) {
     });
 };
 
-module.exports = mongoose.model('Message', messageSchema);
+const Message = mongoose.model('Message', messageSchema);
+
+export default Message;

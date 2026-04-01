@@ -1,68 +1,69 @@
-const Notification = require("../models/Notification");
+// controllers/notificationController.js
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import Notification from "../models/Notification.js";
 
-const getNotifications = async (req, res) => {
-  try {
+// Get all notifications for current user
+const getNotifications = asyncHandler(async (req, res) => {
     const notifications = await Notification.find({
-      recipient: req.user._id,
+        recipient: req.user._id,
     })
-      .populate("sender", "name email")
-      .populate("post", "text")
-      .sort({ createdAt: -1 });
+    .populate("sender", "firstName lastName avatar")
+    .sort({ createdAt: -1 })
+    .limit(50);
 
-    res.json(notifications);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    return res.status(200).json(
+        new ApiResponse(200, notifications, "Notifications fetched successfully")
+    );
+});
 
-const markAsRead = async (req, res) => {
-  try {
-    const notification = await Notification.findById(req.params.id);
+// Mark a single notification as read
+const markAsRead = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const notification = await Notification.findOne({
+        _id: id,
+        recipient: req.user._id,
+    });
 
     if (!notification) {
-      return res.status(404).json({ message: "Notification not found" });
-    }
-
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
+        throw new ApiError(404, "Notification not found");
     }
 
     notification.isRead = true;
+    notification.readAt = new Date();
     await notification.save();
 
-    res.json({ message: "Notification marked as read" });
+    return res.status(200).json(
+        new ApiResponse(200, notification, "Notification marked as read")
+    );
+});
 
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-const getUnreadCount = async (req, res) => {
-  try {
+// Get unread count
+const getUnreadCount = asyncHandler(async (req, res) => {
     const count = await Notification.countDocuments({
-      recipient: req.user._id,
-      isRead: false,
+        recipient: req.user._id,
+        isRead: false,
     });
 
-    res.json({ unread: count });
+    return res.status(200).json(
+        new ApiResponse(200, { count }, "Unread count fetched successfully")
+    );
+});
 
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-const clearNotifications = async (req, res) => {
-  try {
+// Clear all notifications for current user
+const clearNotifications = asyncHandler(async (req, res) => {
     await Notification.deleteMany({ recipient: req.user._id });
-    res.json({ message: "All notifications cleared" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
 
-module.exports = {
-  getNotifications,
-  markAsRead,
-  getUnreadCount,
-  clearNotifications,
+    return res.status(200).json(
+        new ApiResponse(200, null, "All notifications cleared")
+    );
+});
+
+export {
+    getNotifications,
+    markAsRead,
+    getUnreadCount,
+    clearNotifications,
 };

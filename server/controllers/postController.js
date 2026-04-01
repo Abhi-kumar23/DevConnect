@@ -1,128 +1,187 @@
-const Notification = require("../models/Notification");
-const Post = require("../models/Post");
-const User = require("../models/User");
+// controllers/postController.js
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import  Post  from "../models/Post.js";
+import  User  from "../models/User.js";
+import Notification from "../models/Notification.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-const createPost = async (req, res) => {
-  try {
+// Create Post
+const createPost = asyncHandler(async (req, res) => {
+
+    const content = req.body?.content; 
+    const visibility = req.body?.visibility
+
+    if (!content  && !req.file) {
+        throw new ApiError(400, "Post must have text or an image");
+    }
+
+    let imageUrl = null;
+    if (req.file) {
+        const image = await uploadOnCloudinary(req.file.path);
+        imageUrl = image.url;
+    }
+
     const post = await Post.create({
-      user: req.user._id,
-      text: req.body.text,
-      image: req.body.image,
+        user: req.user._id,
+        content: content || "",
+        image: imageUrl,
+        visibility,
     });
 
-    res.status(201).json(post);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    await post.populate("user", "firstName lastName avatar");
 
-const getFeed = async (req, res) => {
-  try {
-    const userId = req.user._id;
+    return res.status(201).json(
+        new ApiResponse(201, post, "Post created successfully")
+    );
+});
 
-    // Get user connections
-    const user = await User.findById(userId);
-    const connections = user.connections;
+// Get Feed
+const getFeed = asyncHandler(async (req, res) => {
+    try {
+        console.log("REQ.USER:", req.user);
 
-    // Pagination
-    let { page = 1, limit = 20 } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
+        let page = parseInt(req.query.page) || 1;
+        let limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
-    const posts = await Post.find({
-      user: { $ne: userId }
-    }).populate("user", "name email");
+        const user = await User.findById(req.user._id);
+        const connections = user?.connections || [];
 
-    const rankedPosts = posts.map(post => {
-      const likeScore = post.likes.length * 3;
-      const commentScore = post.comments.length * 5;
+        const posts = await Post.find({
+            $or: [
+                { user: req.user._id },
+                { user: { $in: connections } }
+            ]
+        })
+        .populate("user", "firstName lastName email avatar") // Add user data
+        .populate("comments.user", "firstName lastName email avatar") // Add comment user data
+        .sort({ createdAt: -1 }) // Newest first
+        .skip(skip)
+        .limit(limit);
 
-      // Recency boost
-      const hoursAgo =
-        (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60);
+        const total = await Post.countDocuments({
+            $or: [
+                { user: req.user._id },
+                { user: { $in: connections } }
+            ]
+        });
 
-      const recencyScore = Math.max(0, 24 - hoursAgo); // fresh posts boost
+        return res.status(200).json(
+            new ApiResponse(200, {
+                data: posts,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            }, "Feed fetched successfully")
+        );
 
-      const totalScore = likeScore + commentScore + recencyScore;
+    } catch (err) {
+        console.error("🔥 REAL ERROR:", err.message);
+        throw new ApiError(500, err.message);
+    }
+});
 
-      return {
-        post,
-        score: totalScore
-      };
-    });
+// Like/Unlike Post
+const toggleLike = asyncHandler(async (req, res) => {
+    const { postId } = req.params;
 
-    rankedPosts.sort((a, b) => b.score - a.score);
+    const post = await Post.findById(postId);
+    if (!post) {
+        throw new ApiError(404, "Post not found");
+    }
 
-    const paginated = rankedPosts
-      .slice((page - 1) * limit, page * limit)
-      .map(item => ({
-        _id: item.post._id,
-        user: item.post.user,
-        text: item.post.text,
-        image: item.post.image,
-        likeCount: item.post.likes.length,
-        commentCount: item.post.comments.length,
-        score: item.score,
-        createdAt: item.post.createdAt
-      }));
+    const liked = post.likes.includes(req.user._id);
 
-    res.json(paginated);
+    if (liked) {
+        post.likes = post.likes.filter(id => id.toString() !== req.user._id.toString());
+    } else {
+        post.likes.push(req.user._id);
+        
+        // Create notification
+        if (post.user.toString() !== req.user._id.toString()) {
+            await Notification.create({
+                recipient: post.user,
+                sender: req.user._id,
+                type: "like",
+                message: `${req.user.firstName} liked your post`,
+                post: post._id
+            });
+        }
+    }
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-const likePost = async (req, res) => {
-  const post = await Post.findById(req.params.id);
-
-  if (!post.likes.includes(req.user._id)) {
-    post.likes.push(req.user._id);
     await post.save();
 
-    // CREATE NOTIFICATION
-    if (post.user.toString() !== req.user._id.toString()) {
-      await Notification.create({
-        recipient: post.user,
-        sender: req.user._id,
-        type: "like",
-        post: post._id,
-        message: "liked your post",
-      });
+    return res.status(200).json(
+        new ApiResponse(200, {
+            liked: !liked,
+            likesCount: post.likes.length
+        }, liked ? "Post unliked" : "Post liked")
+    );
+});
+
+// Add Comment
+const addComment = asyncHandler(async (req, res) => {
+    const { postId } = req.params;
+    const { text } = req.body;
+
+    if (!text) {
+        throw new ApiError(400, "Comment text is required");
     }
-  }
 
-  res.json(post.likes);
-};
+    const post = await Post.findById(postId);
+    if (!post) {
+        throw new ApiError(404, "Post not found");
+    }
 
-const commentPost = async (req, res) => {
-  const post = await Post.findById(req.params.id);
+    const comment = {
+        user: req.user._id,
+        text
+    };
 
-  post.comments.push({
-    user: req.user._id,
-    text: req.body.text,
-  });
+    post.comments.push(comment);
+    await post.save();
 
-  await post.save();
+    // Create notification
+    if (post.user.toString() !== req.user._id.toString()) {
+        await Notification.create({
+            recipient: post.user,
+            sender: req.user._id,
+            type: "comment",
+            message: `${req.user.firstName} commented on your post`,
+            post: post._id
+        });
+    }
 
-  // CREATE NOTIFICATION
-  if (post.user.toString() !== req.user._id.toString()) {
-    await Notification.create({
-      recipient: post.user,
-      sender: req.user._id,
-      type: "comment",
-      post: post._id,
-      message: "commented on your post",
-    });
-  }
+    await post.populate("comments.user", "firstName lastName avatar");
 
-  res.json(post.comments);
-};
+    return res.status(200).json(
+        new ApiResponse(200, post.comments, "Comment added successfully")
+    );
+});
 
-module.exports = {
-  createPost,
-  getFeed,
-  likePost,
-  commentPost,
-};
+// Delete Post
+const deletePost = asyncHandler(async (req, res) => {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+        throw new ApiError(404, "Post not found");
+    }
+
+    if (post.user.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "Not authorized to delete this post");
+    }
+
+    await post.deleteOne();
+
+    return res.status(200).json(
+        new ApiResponse(200, null, "Post deleted successfully")
+    );
+});
+
+export { createPost, getFeed, toggleLike, addComment, deletePost };

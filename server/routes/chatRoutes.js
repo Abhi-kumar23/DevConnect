@@ -1,18 +1,24 @@
-const express = require("express");
-const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
+import express from "express";
+import { verifyJWT } from "../middleware/authMiddleware.js";
 
-const {
-  createChat,
+import {
+  createOrGetChat,
   getUserChats,
   sendMessage,
-  getMessages
-} = require("../controllers/chatController");
+  getMessages,
+  markAsRead
+} from "../controllers/chatController.js";
 
+const router = express.Router();
 
-router.post("/", protect, createChat);
-router.get("/", protect, getUserChats);
-router.post("/message", protect, sendMessage);
-router.get("/message/:chatId", protect, getMessages);
+router.use(verifyJWT);
 
-module.exports = router;
+router.route('/')
+    .get(getUserChats)
+    .post(createOrGetChat);
+
+router.post('/message', sendMessage);
+router.get('/:chatId/messages', getMessages);
+router.put('/:chatId/read', markAsRead);
+
+export default router;

@@ -1,20 +1,25 @@
-const express = require("express");
-const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
+import express from "express";
+import { verifyJWT } from "../middleware/authMiddleware.js";
 
-const {
+const router = express.Router();
+
+import {
   sendRequest,
   acceptRequest,
   rejectRequest,
   getConnections,
+  getPendingRequests,
   getSuggestions
-} = require("../controllers/connectionsController");
+} from "../controllers/connectionsController.js";
 
-router.post("/connect/:id", protect, sendRequest);
-router.post("/accept/:id", protect, acceptRequest);
-router.post("/reject/:id", protect, rejectRequest);
+router.use(verifyJWT);
 
-router.get("/", protect, getConnections);
-router.get("/suggestions", protect, getSuggestions);
+router.post("/connect/:userId", sendRequest);  
+router.post("/accept/:userId", acceptRequest); 
+router.post("/reject/:userId", rejectRequest); 
+router.get('/pending', getPendingRequests);
 
-module.exports = router;
+router.get("/", getConnections);
+router.get("/suggestions", getSuggestions);
+
+export default router;

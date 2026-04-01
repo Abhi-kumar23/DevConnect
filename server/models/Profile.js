@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const profileSchema = new mongoose.Schema({
     user: {
@@ -148,4 +148,6 @@ profileSchema.methods.getCompletionPercentage = function() {
     return Math.round((completed / fields.length) * 100);
 };
 
-module.exports = mongoose.model('Profile', profileSchema);
+const Profile = mongoose.model("Profile", profileSchema);
+
+export default Profile;

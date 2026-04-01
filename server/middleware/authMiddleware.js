@@ -1,70 +1,30 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const ApiError = require('../utils/ApiError');
-const asyncHandler = require('../utils/asyncHandler');
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import jwt from "jsonwebtoken"
+import User from "../models/User.js";
 
-const protect = asyncHandler(async (req, res, next) => {
-    let token;
-
-    // Check Authorization header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        token = req.headers.authorization.split(' ')[1];
-    }
-    // Check cookie
-    else if (req.cookies?.token) {
-        token = req.cookies.token;
-    }
-
-    if (!token) {
-        throw ApiError.unauthorized('Not authorized to access this route');
-    }
-
+export const verifyJWT = asyncHandler(async(req, res, next) => {
     try {
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // Get user from token
-        const user = await User.findById(decoded.id)
-            .select('-password')
-            .populate('profile');
-
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ","")
+        
+        // console.log(token);
+        if (!token) {
+            throw new ApiError(401, "Unauthorized request")
+        }
+    
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+    
+        const user = await User.findById(decodedToken?._id).select("-password -refreshToken")
+    
         if (!user) {
-            throw ApiError.unauthorized('User not found');
+            throw new ApiError(401, "Invalid Access Token")
         }
-
-        // Check if user is active
-        if (!user.isActive) {
-            throw ApiError.unauthorized('Account is deactivated');
-        }
-
-        // Add user to request
+        console.log("TOKEN:", token)
+        console.log("DECODED:", decodedToken)
         req.user = user;
-        req.userId = user._id;
-
         next();
     } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-            throw ApiError.unauthorized('Invalid token');
-        }
-        if (error.name === 'TokenExpiredError') {
-            throw ApiError.unauthorized('Token expired');
-        }
-        throw error;
+        throw new ApiError(401, error?.message || "Invalid access token")
     }
-});
-
-const authorize = (...roles) => {
-    return (req, res, next) => {
-        if (!req.user) {
-            throw ApiError.unauthorized('Not authorized');
-        }
-
-        if (!roles.includes(req.user.role)) {
-            throw ApiError.forbidden(`User role ${req.user.role} is not authorized to access this route`);
-        }
-
-        next();
-    };
-};
-
-module.exports = { protect, authorize };
+    
+})

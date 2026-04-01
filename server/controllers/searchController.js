@@ -1,6 +1,6 @@
-const User = require("../models/User");
-const Profile = require("../models/Profile");
-const Post = require("../models/Post");
+import User from "../models/User.js";
+import Profile from "../models/Profile.js";
+import Post from "../models/Post.js";
 
 const globalSearch = async (req, res) => {
   try {
@@ -42,4 +42,4 @@ const globalSearch = async (req, res) => {
   }
 };
 
-module.exports = { globalSearch };
+export {globalSearch};

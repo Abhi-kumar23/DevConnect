@@ -1,1 +1,17 @@
+cat > .gitignore << 'EOF'
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment (if any at root)
 .env
+.env.local
+
+# Logs
+*.log
+EOF

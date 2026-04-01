@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const likeSchema = new mongoose.Schema({
     user: {
@@ -66,4 +66,6 @@ likeSchema.statics.hasLiked = async function(userId, targetType, targetId) {
     return !!like;
 };
 
-module.exports = mongoose.model('Like', likeSchema);
+const Like = mongoose.model('Like', likeSchema);
+export default Like;
+

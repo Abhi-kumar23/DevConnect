@@ -1,17 +1,20 @@
-const express = require("express");
-const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
+import express from "express";
+import { verifyJWT } from "../middleware/authMiddleware.js";
 
-const {
+const router = express.Router();
+
+import {
   getNotifications,
   markAsRead,
   getUnreadCount,
   clearNotifications,
-} = require("../controllers/notificationController");
+} from "../controllers/notificationController.js";
 
-router.get("/", protect, getNotifications);
-router.put("/:id/read", protect, markAsRead);
-router.delete("/", protect, clearNotifications);
-router.get("/unread/count", protect, getUnreadCount);
+router.use(verifyJWT);
 
-module.exports = router;
+router.get("/", getNotifications);
+router.put("/:id/read", markAsRead);
+router.delete("/", clearNotifications);
+router.get("/unread/count", getUnreadCount);
+
+export default router;

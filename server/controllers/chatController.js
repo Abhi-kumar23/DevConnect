@@ -1,62 +1,142 @@
-const Chat = require("../models/Chat");
-const Message = require("../models/Message");
+// controllers/chatController.js
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import  Chat  from "../models/Chat.js";
+import Message from "../models/Message.js";
+import User  from "../models/User.js";
+import  Notification  from "../models/Notification.js";
 
-const createChat = async (req, res) => {
-  try {
-    const newChat = await Chat.create({
-      members: [req.user._id, req.body.receiverId]
-    });
+const createOrGetChat = asyncHandler(async (req, res) => {
+    const { userId } = req.body;
 
-    res.status(201).json(newChat);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    if (!userId) {
+        throw new ApiError(400, "User ID is required");
+    }
 
-const getUserChats = async (req, res) => {
-  try {
+    let chat = await Chat.findOne({
+        participants: { $all: [req.user._id, userId] },
+        isGroupChat: false
+    }).populate("participants", "firstName lastName avatar");
+
+    if (!chat) {
+        chat = await Chat.findOne({
+            participants: { $in: [req.user._id, userId] },
+            $and: [
+                { participants: req.user._id },
+                { participants: userId }
+            ],
+            isGroupChat: false
+        });
+        
+        if (!chat) {
+            chat = await Chat.create({
+                participants: [req.user._id, userId],
+                isGroupChat: false
+            });
+            await chat.populate("participants", "firstName lastName avatar");
+        }
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, chat, "Chat fetched successfully")
+    );
+});
+
+const getUserChats = asyncHandler(async (req, res) => {
     const chats = await Chat.find({
-      members: { $in: [req.user._id] }
-    }).populate("members", "name email");
+        participants: req.user._id
+    })
+    .populate("participants", "firstName lastName avatar")
+    .populate("lastMessage")
+    .sort({ updatedAt: -1 });
 
-    res.json(chats);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    return res.status(200).json(
+        new ApiResponse(200, chats, "Chats fetched successfully")
+    );
+});
 
+// Send Message
+const sendMessage = asyncHandler(async (req, res) => {
+    const { chatId, text } = req.body;
 
-const sendMessage = async (req, res) => {
-  try {
+    if (!chatId || !text) {
+        throw new ApiError(400, "Chat ID and message text are required");
+    }
+
+    const chat = await Chat.findById(chatId);
+    if (!chat) {
+        throw new ApiError(404, "Chat not found");
+    }
+
     const message = await Message.create({
-      chatId: req.body.chatId,
-      sender: req.user._id,
-      text: req.body.text
+        chat: chatId,
+        sender: req.user._id,
+        content: text
     });
 
-    res.status(201).json(message);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    // Update chat last message
+    chat.lastMessage = message._id;
+    chat.lastMessageAt = new Date();
+    await chat.save();
 
+    await message.populate("sender", "firstName lastName avatar");
 
-const getMessages = async (req, res) => {
-  try {
-    const messages = await Message.find({
-      chatId: req.params.chatId
-    }).sort({ createdAt: 1 });
+    // Get recipient
+    const recipient = chat.participants.find(
+        p => p.toString() !== req.user._id.toString()
+    );
 
-    res.json(messages);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    // Create notification
+    await Notification.create({
+        recipient,
+        sender: req.user._id,
+        type: "message",
+        title: "New Message", 
+        message: `${req.user.firstName}: ${text.substring(0, 50)}${text.length > 50 ? "..." : ""}`,
+        data: { chatId: chat._id }
+    });
 
+    return res.status(201).json(
+        new ApiResponse(201, message, "Message sent successfully")
+    );
+});
 
-module.exports = {
-  createChat,
-  getUserChats,
-  sendMessage,
-  getMessages
-};
+// Get Messages
+const getMessages = asyncHandler(async (req, res) => {
+    const { chatId } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const messages = await Message.find({ chat: chatId })
+        .populate("sender", "firstName lastName avatar")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+
+    return res.status(200).json(
+        new ApiResponse(200, messages.reverse(), "Messages fetched successfully")
+    );
+});
+
+// Mark Messages as Read
+const markAsRead = asyncHandler(async (req, res) => {
+    const { chatId } = req.params;
+
+    await Message.updateMany(
+        {
+            chat: chatId,
+            sender: { $ne: req.user._id },
+            "readBy.user": { $ne: req.user._id }
+        },
+        {
+            $push: { readBy: { user: req.user._id, readAt: new Date() } }
+        }
+    );
+
+    return res.status(200).json(
+        new ApiResponse(200, null, "Messages marked as read")
+    );
+});
+
+export { createOrGetChat, getUserChats, sendMessage, getMessages, markAsRead };
