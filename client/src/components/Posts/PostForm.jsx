@@ -9,28 +9,37 @@ const PostForm = ({ onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!content.trim()) {
-      toast.error('Please write something')
+
+    if (!content.trim() && !image) {
+      toast.error('Please write something or add an image')
       return
     }
 
     setLoading(true)
 
-    let postData
-    if (image) {
-      postData = new FormData()
-      postData.append('content', content)
-      postData.append('image', image)
-    } else {
-      postData = { content }
+    try {
+      let postData
+      if (image) {
+        postData = new FormData()
+        postData.append('content', content)
+        postData.append('image', image)
+        console.log('Sending FormData with image:', image.name, image.size)
+      } else {
+        postData = { content }
+        console.log('Sending text only')
+      }
+
+      await onSubmit(postData)
+
+      setContent('')
+      setImage(null)
+      toast.success('Post created!')
+    } catch (error) {
+      console.error('Submit error:', error)
+      toast.error(error.message || 'Failed to create post')
+    } finally {
+      setLoading(false)
     }
-
-    await onSubmit(postData)
-
-    setContent('')
-    setImage(null)
-    setLoading(false)
-    toast.success('Post created!')
   }
 
   const handleImageChange = (e) => {

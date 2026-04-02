@@ -9,6 +9,7 @@ import Profile from './pages/Profile'
 import EditProfile from './pages/EditProfile'
 import Connections from './pages/Connections'
 import Chat from './pages/Chat'
+import Notifications from './components/Notifications/Notifications'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -60,6 +61,7 @@ function App() {
         <Route path="connections" element={<Connections />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:chatId" element={<Chat />} />
+        <Route path="notifications" element={<Notifications />} />
       </Route>
     </Routes>
   )

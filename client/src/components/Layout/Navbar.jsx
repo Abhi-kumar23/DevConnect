@@ -2,8 +2,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { FiUser, FiLogOut, FiMessageSquare, FiUsers, FiHome, FiSearch, FiBell } from 'react-icons/fi'
-import NotificationBell from '../Notifications/NotificationBell'
+import { FiUser, FiLogOut, FiMessageSquare, FiUsers, FiHome, FiSearch, FiBell, FiBriefcase } from 'react-icons/fi'
 
 const Navbar = () => {
   const { user, logout } = useAuth()
@@ -46,17 +45,26 @@ const Navbar = () => {
 
           {/* Navigation Links */}
           <div className="flex items-center space-x-6">
-            <Link to="/" className="text-gray-600 hover:text-primary-600">
-              <FiHome size={22} />
-            </Link>
-            <Link to="/connections" className="text-gray-600 hover:text-primary-600">
-              <FiUsers size={22} />
-            </Link>
-            <Link to="/chat" className="text-gray-600 hover:text-primary-600">
-              <FiMessageSquare size={22} />
-            </Link>
-            <NotificationBell />
-            
+
+            <div className="hidden md:flex items-center space-x-6">
+              <Link to="/projects" className="flex flex-col items-center justify-center text-gray-600 hover:text-primary-600">
+                <FiBriefcase size={22} />
+                <span className="text-xs text-center mt-1">Projects</span>
+              </Link>
+              <Link to="/connections" className="flex flex-col items-center justify-center text-gray-600 hover:text-primary-600">
+                <FiUsers size={22} />
+                <span className="text-xs text-center mt-1">Connections</span>
+              </Link>
+              <Link to="/chat" className="flex flex-col items-center justify-center text-gray-600 hover:text-primary-600">
+                <FiMessageSquare size={22} />
+                <span className="text-xs text-center mt-1">Messages</span>
+              </Link>
+              <Link to="/notifications" className="flex flex-col items-center justify-center text-gray-600 hover:text-primary-600">
+                <FiBell size={22} />
+                <span className="text-xs text-center mt-1">Notifications</span>
+              </Link>
+            </div>
+
             {/* Profile Menu */}
             <div className="relative">
               <button
@@ -66,10 +74,10 @@ const Navbar = () => {
                 <img
                   src={user?.avatar || user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff`}
                   alt={user?.firstName}
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-10 h-10 rounded-full object-cover"
                 />
               </button>
-              
+
               {showMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border z-50">
                   <Link

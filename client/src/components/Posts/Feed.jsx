@@ -1,4 +1,5 @@
 import React from "react";
+import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { postsService } from "../../services/posts";
 
@@ -17,9 +18,16 @@ const Feed = () => {
     });
 
     const createMutation = useMutation({
-        mutationFn: postsService.createPost,
-        onSuccess: () =>
-            queryClient.invalidateQueries({ queryKey: ["feed"] }),
+        mutationFn: (data) => postsService.createPost(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["feed"] });
+            console.log("Post created successfully");
+        },
+        onError: (error) => {
+            console.error("Create post error details:", error);
+            console.error("Error response:", error.response);
+            toast.error(error.response?.data?.message || "Failed to create post");
+        }
     });
 
     const likeMutation = useMutation({
@@ -44,7 +52,7 @@ const Feed = () => {
 
     // Extract posts from the nested response structure
     const posts = response?.data?.data?.data || response?.data?.data || [];
-    
+
     console.log("Posts to display:", posts);
 
     console.log("First post structure:", JSON.stringify(posts[0], null, 2));
