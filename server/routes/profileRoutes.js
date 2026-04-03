@@ -19,7 +19,6 @@ router.get('/all', getAllProfiles);
 router.get('/search', searchUsers);
 router.get('/user/:userId', getProfileByUserId);
 
-// Protected routes (require authentication)
 router.use(verifyJWT);
 
 router.route('/')

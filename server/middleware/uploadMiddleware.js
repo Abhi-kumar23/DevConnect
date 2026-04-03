@@ -1,8 +1,14 @@
 import multer from "multer";
+import fs from "fs";
+
+const tempDir = "./public/temp";
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, `./public/images`);
+      cb(null, tempDir);
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -12,6 +18,6 @@ const storage = multer.diskStorage({
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 1 * 1000 * 1000,
+    fileSize: 1 * 1024 * 1024, //5MB
   },
 });

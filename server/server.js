@@ -1,5 +1,7 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config({ path: "./config/.env" });
+
+import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
@@ -17,14 +19,13 @@ import searchRoutes from "./routes/searchRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import initSocket from "./sockets/chatSocket.js";
 
-dotenv.config({ path: "./config/.env" });
 
 const app = express();
 app.use(cookieParser());
 
 // app.use(cors());
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: process.env.CLIENT_URL,
   credentials: true
 }));
 
@@ -76,7 +77,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000"],
+    origin: process.env.CLIENT_URL,
     credentials: true,
   },
 });

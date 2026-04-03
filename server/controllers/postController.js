@@ -19,8 +19,15 @@ const createPost = asyncHandler(async (req, res) => {
 
     let imageUrl = null;
     if (req.file) {
+        console.log("File received:", req.file.path);
         const image = await uploadOnCloudinary(req.file.path);
-        imageUrl = image.url;
+        console.log("Cloudinary response:", image);
+        if (image && image.url) {
+            imageUrl = image.url;
+        } else {
+            console.error("Cloudinary upload failed - no URL returned");
+            throw new ApiError(500, "Image upload failed. Please check Cloudinary credentials.");
+        }
     }
 
     const post = await Post.create({
