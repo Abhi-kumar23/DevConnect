@@ -12,6 +12,7 @@ import cookieParser from "cookie-parser";
 import connectDB from "./config/database.js";
 import authRoutes from "./routes/authRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
+import projectRoutes from "./routes/projectRoutes.js"
 import postRoutes from "./routes/postRoutes.js";
 import connectionsRoutes from "./routes/connectionsRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
@@ -56,6 +57,7 @@ app.use("/api/auth/register", authLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/profiles", profileRoutes);
 app.use("/api/posts", postRoutes);
+app.use('/api/projects', projectRoutes);
 app.use("/api/connections", connectionsRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/search", searchRoutes);
