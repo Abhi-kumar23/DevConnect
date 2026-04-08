@@ -73,7 +73,7 @@ const Connections = () => {
     const suggestions = suggestionsData?.data?.data || suggestionsData?.data || []
 
     const filterData = (data) => {
-        return data.filter(user => 
+        return data.filter(user =>
             user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.headline?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -109,31 +109,33 @@ const Connections = () => {
                 <div className="flex space-x-6">
                     <button
                         onClick={() => setActiveTab('connections')}
-                        className={`pb-3 px-1 font-medium transition-colors ${
-                            activeTab === 'connections' 
-                                ? 'text-primary-600 border-b-2 border-primary-600' 
+                        className={`pb-3 px-1 font-medium transition-colors ${activeTab === 'connections'
+                                ? 'text-primary-600 border-b-2 border-primary-600'
                                 : 'text-gray-500 hover:text-gray-700'
-                        }`}
+                            }`}
                     >
                         Connections ({connections.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('pending')}
-                        className={`pb-3 px-1 font-medium transition-colors ${
-                            activeTab === 'pending' 
-                                ? 'text-primary-600 border-b-2 border-primary-600' 
+                        className={`pb-3 px-1 font-medium transition-colors relative ${activeTab === 'pending'
+                                ? 'text-primary-600 border-b-2 border-primary-600'
                                 : 'text-gray-500 hover:text-gray-700'
-                        }`}
+                            }`}
                     >
-                        Pending ({pendingRequests.length})
+                        Pending
+                        {pendingRequests.length > 0 && (
+                            <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                {pendingRequests.length}
+                            </span>
+                        )}
                     </button>
                     <button
                         onClick={() => setActiveTab('suggestions')}
-                        className={`pb-3 px-1 font-medium transition-colors ${
-                            activeTab === 'suggestions' 
-                                ? 'text-primary-600 border-b-2 border-primary-600' 
+                        className={`pb-3 px-1 font-medium transition-colors ${activeTab === 'suggestions'
+                                ? 'text-primary-600 border-b-2 border-primary-600'
                                 : 'text-gray-500 hover:text-gray-700'
-                        }`}
+                            }`}
                     >
                         Suggestions ({suggestions.length})
                     </button>

@@ -49,7 +49,9 @@ const initSocket = (io) => {
                 { $push: { readBy: userId } }
             );
         });
-
+        socket.on('joinProjectChat', (projectId) => {
+            socket.join(`project_${projectId}`);
+        });
         socket.on("disconnect", () => {
             for (let [userId, sockId] of onlineUsers.entries()) {
                 if (sockId === socket.id) {
