@@ -1,5 +1,5 @@
 // src/components/Layout/Navbar.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { FiUser, FiLogOut, FiMessageSquare, FiUsers, FiHome, FiSearch, FiBell, FiBriefcase } from 'react-icons/fi'
@@ -9,6 +9,19 @@ const Navbar = () => {
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const searchInputRef = useRef(null)
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isSearchOpen) {
+        setIsSearchOpen(false)
+        setSearchQuery('')
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [isSearchOpen])
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -29,8 +42,8 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Search Bar */}
-          <div className="flex-1 max-w-xl mx-8">
+          {/* Search Bar - Desktop */}
+          <div className="hidden md:block flex-1 max-w-xl mx-8">
             <form onSubmit={handleSearch} className="relative mt-3">
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -38,10 +51,46 @@ const Navbar = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-base md:text-sm"
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </form>
           </div>
+
+          {/* Search Bar - Mobile */}
+          <div className="md:hidden flex items-center">
+            <button onClick={() => setIsSearchOpen(true)} className="text-gray-600">
+              <FiSearch className="absolute right-20 top-1/2 transform -translate-y-1/2 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Full Screen Search Modal - Mobile */}
+          {isSearchOpen && (
+            <div className="fixed inset-0 bg-white z-50 md:hidden">
+              <div className="flex items-center p-3 border-b">
+                <form onSubmit={handleSearch} className="flex-1">
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-base"
+                      autoFocus
+                    />
+                  </div>
+                </form>
+                <button onClick={() => setIsSearchOpen(false)} className="ml-3 text-gray-600 font-medium">
+                  Cancel
+                </button>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-500 text-sm">Type something to search...</p>
+              </div>
+            </div>
+          )}
+          
 
           {/* Navigation Links */}
           <div className="flex items-center space-x-6">
