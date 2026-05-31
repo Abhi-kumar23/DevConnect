@@ -19,6 +19,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import initSocket from "./sockets/chatSocket.js";
+import { createIndexes } from './config/dbIndexes.js';
 
 
 const app = express();
@@ -26,7 +27,7 @@ app.use(cookieParser());
 
 // app.use(cors());
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
 }));
 
@@ -79,7 +80,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true,
   },
 });
@@ -87,6 +88,7 @@ const io = new Server(server, {
 initSocket(io);
 
 connectDB().then(() => {
+  createIndexes();
   const PORT = process.env.PORT || 8000;
   server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
