@@ -62,11 +62,13 @@ const getFeed = asyncHandler(async (req, res) => {
                 { user: { $in: connections } }
             ]
         })
+        .select('content image likes comments createdAt user') // Select only needed fields
         .populate("user", "firstName lastName email avatar") // Add user data
         .populate("comments.user", "firstName lastName email avatar") // Add comment user data
         .sort({ createdAt: -1 }) // Newest first
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .lean();  // Use lean() for faster plain JS objects
 
         const total = await Post.countDocuments({
             $or: [

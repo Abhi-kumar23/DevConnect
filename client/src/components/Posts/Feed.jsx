@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { postsService } from "../../services/posts";
@@ -9,23 +9,30 @@ import Loading from "../Common/Loading";
 
 const Feed = () => {
     const queryClient = useQueryClient();
-
-    const page = 1;
+    const [page, setPage] = useState(1);
 
     const { data: response, isLoading, error } = useQuery({
         queryKey: ["feed", page],
-        queryFn: () => postsService.getFeed(page),
+        queryFn: () => postsService.getFeed(page, 10),
     });
+
+    // Fix loadMore function 
+    const loadMore = () => {
+        const hasNext = response?.data?.data?.pagination?.hasNext || 
+                        response?.data?.pagination?.hasNext;
+        if (hasNext) {
+            setPage(prev => prev + 1);
+        }
+    };
 
     const createMutation = useMutation({
         mutationFn: (data) => postsService.createPost(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["feed"] });
-            console.log("Post created successfully");
+            toast.success("Post created successfully");
         },
         onError: (error) => {
-            console.error("Create post error details:", error);
-            console.error("Error response:", error.response);
+            console.error("Create post error:", error);
             toast.error(error.response?.data?.message || "Failed to create post");
         }
     });
@@ -34,6 +41,9 @@ const Feed = () => {
         mutationFn: postsService.likePost,
         onSuccess: () =>
             queryClient.invalidateQueries({ queryKey: ["feed"] }),
+        onError: (error) => {
+            toast.error(error.response?.data?.message || "Failed to like post");
+        }
     });
 
     const commentMutation = useMutation({
@@ -41,21 +51,22 @@ const Feed = () => {
             postsService.commentPost(postId, text),
         onSuccess: () =>
             queryClient.invalidateQueries({ queryKey: ["feed"] }),
+        onError: (error) => {
+            toast.error(error.response?.data?.message || "Failed to add comment");
+        }
     });
 
     if (isLoading) return <Loading />;
 
     if (error) {
         console.error("Feed error:", error);
-        return <h1>Error loading feed</h1>;
+        return <h1 className="text-center text-red-500 py-8">Error loading feed</h1>;
     }
 
-    // Extract posts from the nested response structure
+    // Extract posts from nested response
     const posts = response?.data?.data?.data || response?.data?.data || [];
-
-    console.log("Posts to display:", posts);
-
-    console.log("First post structure:", JSON.stringify(posts[0], null, 2));
+    const pagination = response?.data?.data?.pagination || response?.data?.pagination;
+    const hasMore = pagination?.hasNext || (pagination?.page < pagination?.pages);
 
     return (
         <div className="space-y-6">
@@ -71,19 +82,33 @@ const Feed = () => {
                     <p className="text-sm mt-2">Create your first post or connect with other developers!</p>
                 </div>
             ) : (
-                posts.map((post) => (
-                    <PostCard
-                        key={post._id}
-                        post={post}
-                        onLike={() => likeMutation.mutate(post._id)}
-                        onComment={(text) =>
-                            commentMutation.mutate({
-                                postId: post._id,
-                                text,
-                            })
-                        }
-                    />
-                ))
+                <>
+                    {posts.map((post) => (
+                        <PostCard
+                            key={post._id}
+                            post={post}
+                            onLike={() => likeMutation.mutate(post._id)}
+                            onComment={(text) =>
+                                commentMutation.mutate({
+                                    postId: post._id,
+                                    text,
+                                })
+                            }
+                        />
+                    ))}
+                    
+                    {/* Load More Button */}
+                    {hasMore && (
+                        <div className="flex justify-center pt-4">
+                            <button 
+                                onClick={loadMore}
+                                className="btn-secondary px-6 py-2"
+                            >
+                                Load More
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

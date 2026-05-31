@@ -256,9 +256,7 @@ const Chat = () => {
                             <button 
                                 onClick={() => setSelectedChat(null)}
                                 className="md:hidden text-gray-600 mr-2"
-                            >
-                                ← Back
-                            </button>
+                            >←</button>
                             {(() => {
                                 const otherUser = getOtherParticipant(selectedChat)
                                 return (
