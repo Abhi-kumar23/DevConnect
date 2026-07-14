@@ -13,6 +13,7 @@ import Notifications from './components/Notifications/Notifications'
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectChat from './pages/ProjectChat';
+import VerifyEmail from './pages/verifyEmail'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -52,7 +53,10 @@ function App() {
           <Register />
         </PublicRoute>
       } />
-
+      <Route
+        path="/verify-email"
+        element={<VerifyEmail />}
+      />
       <Route path="/" element={
         <PrivateRoute>
           <Layout />

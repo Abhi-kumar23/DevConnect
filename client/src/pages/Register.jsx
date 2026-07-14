@@ -1,11 +1,13 @@
-// src/pages/Register.jsx
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { FiUser, FiMail, FiLock, FiArrowRight } from 'react-icons/fi'
 import PublicNavbar from '../components/Layout/PublicNavbar'
+import { useNavigate } from "react-router-dom";
+
 
 const Register = () => {
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -16,8 +18,19 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    await register(firstName, lastName, email, password)
-    setLoading(false)
+
+    const result = await register(
+      firstName,
+      lastName,
+      email,
+      password
+    );
+
+    setLoading(false);
+
+    if (result.success && result.requiresVerification) {
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+    }
   }
 
   return (

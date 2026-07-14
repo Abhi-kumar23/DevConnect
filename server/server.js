@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "./config/.env" });
+import "./config/env.js";
 
 import express from "express";
 import cors from "cors";
@@ -20,6 +19,7 @@ import searchRoutes from "./routes/searchRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import initSocket from "./sockets/chatSocket.js";
 import { createIndexes } from './config/dbIndexes.js';
+import { testEmailConnection } from "./utils/mail.js";
 
 
 const app = express();
@@ -35,7 +35,7 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: 60 * 1000, 
   max: 100,
   message: "Too many requests, please try again later.",
   standardHeaders: true,
@@ -87,7 +87,8 @@ const io = new Server(server, {
 
 initSocket(io);
 
-connectDB().then(() => {
+connectDB().then(async () => {
+  await testEmailConnection();
   createIndexes();
   const PORT = process.env.PORT || 8000;
   server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

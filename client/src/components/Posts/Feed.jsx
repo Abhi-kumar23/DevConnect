@@ -16,12 +16,9 @@ const Feed = () => {
         queryFn: () => postsService.getFeed(page, 10),
     });
 
-    // Fix loadMore function 
     const loadMore = () => {
-        const hasNext = response?.data?.data?.pagination?.hasNext || 
-                        response?.data?.pagination?.hasNext;
-        if (hasNext) {
-            setPage(prev => prev + 1);
+        if (pagination && pagination.page < pagination.pages) {
+            setPage((previousPage) => previousPage + 1);
         }
     };
 
@@ -96,11 +93,11 @@ const Feed = () => {
                             }
                         />
                     ))}
-                    
+
                     {/* Load More Button */}
                     {hasMore && (
                         <div className="flex justify-center pt-4">
-                            <button 
+                            <button
                                 onClick={loadMore}
                                 className="btn-secondary px-6 py-2"
                             >

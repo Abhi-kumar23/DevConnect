@@ -14,6 +14,11 @@ const postSchema = new mongoose.Schema(
   image: {
     type: String,
   },
+  visibility: {
+    type: String,
+    enum: ['public', 'connections'],
+    default: 'public'
+  },
   likes: [
     {
       type: mongoose.Schema.Types.ObjectId,
