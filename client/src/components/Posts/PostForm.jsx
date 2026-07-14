@@ -1,46 +1,44 @@
 import React, { useState } from 'react'
-import { FiImage, FiSend } from 'react-icons/fi'
+import { FiImage, FiSend, FiGlobe, FiUsers } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
 const PostForm = ({ onSubmit }) => {
   const [content, setContent] = useState('')
   const [image, setImage] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [visibility, setVisibility] = useState('public')
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (!content.trim() && !image) {
-      toast.error('Please write something or add an image')
-      return
+      toast.error("Please write something or add an image");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      let postData
+      let postData;
+
       if (image) {
-        postData = new FormData()
-        postData.append('content', content)
-        postData.append('image', image)
-        console.log('Sending FormData with image:', image.name, image.size)
+        postData = new FormData();
+        postData.append("content", content);
+        postData.append("image", image);
+        postData.append("visibility", visibility);
       } else {
-        postData = { content }
-        console.log('Sending text only')
+        postData = { content: content.trim(), visibility };
       }
 
-      await onSubmit(postData)
+      await onSubmit(postData);
 
-      setContent('')
-      setImage(null)
-      toast.success('Post created!')
-    } catch (error) {
-      console.error('Submit error:', error)
-      toast.error(error.message || 'Failed to create post')
+      setContent("");
+      setImage(null);
+    } catch {
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -61,6 +59,35 @@ const PostForm = ({ onSubmit }) => {
           className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
           rows="3"
         />
+
+        {/* Visibility Options */}
+        <div className="flex items-center space-x-4 border-t pt-3">
+          <span className="text-sm text-gray-500">Who can see this?</span>
+          <div className="flex space-x-2">
+            <button
+              type="button"
+              onClick={() => setVisibility('public')}
+              className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm transition-colors ${visibility === 'public'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+            >
+              <FiGlobe size={14} />
+              <span>Public</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisibility('connections')}
+              className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm transition-colors ${visibility === 'connections'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+            >
+              <FiUsers size={14} />
+              <span>Connections</span>
+            </button>
+          </div>
+        </div>
 
         {image && (
           <div className="relative">

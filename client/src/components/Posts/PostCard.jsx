@@ -1,4 +1,3 @@
-// src/components/Posts/PostCard.jsx
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -9,7 +8,9 @@ const PostCard = ({ post, onLike, onComment }) => {
   const { user } = useAuth()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
-  const [isLiked, setIsLiked] = useState(post.likes?.includes(user?._id) || false)
+  const [isLiked, setIsLiked] = useState(
+    post.likes?.some((id) => id.toString() === user?._id?.toString()) || false
+  );
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0)
 
   const handleLike = () => {
@@ -31,7 +32,7 @@ const PostCard = ({ post, onLike, onComment }) => {
       <div className="p-4 flex items-center space-x-3">
         <Link to={`/profile/${post.user?._id}`}>
           <img
-            src={post.user?.avatar || `https://ui-avatars.com/api/?name=${post.user?.firstName}+${post.user?.lastName}&background=3b82f6&color=fff`}
+            src={post.user?.profilePicture || `https://ui-avatars.com/api/?name=${post.user?.firstName}+${post.user?.lastName}&background=3b82f6&color=fff`}
             alt={post.user?.firstName}
             className="w-10 h-10 rounded-full object-cover"
           />
@@ -44,7 +45,7 @@ const PostCard = ({ post, onLike, onComment }) => {
         </div>
         <p className="text-xs text-gray-400">{formatDistanceToNow(new Date(post.createdAt))} ago</p>
       </div>
-      
+
       {/* Content */}
       <div className="px-4 pb-4">
         <p className="text-gray-800 whitespace-pre-wrap">{post.content}</p>
@@ -52,19 +53,18 @@ const PostCard = ({ post, onLike, onComment }) => {
           <img src={post.image} alt="Post" className="mt-4 rounded-lg max-h-96 w-full object-cover" />
         )}
       </div>
-      
+
       {/* Actions */}
       <div className="px-4 py-2 border-t flex justify-around">
         <button
           onClick={handleLike}
-          className={`flex items-center space-x-2 py-2 px-4 rounded-lg transition-colors ${
-            isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
-          }`}
+          className={`flex items-center space-x-2 py-2 px-4 rounded-lg transition-colors ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
+            }`}
         >
           <FiHeart size={20} fill={isLiked ? 'currentColor' : 'none'} />
           <span className="text-sm">{likesCount}</span>
         </button>
-        
+
         <button
           onClick={() => setShowComments(!showComments)}
           className="flex items-center space-x-2 py-2 px-4 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
@@ -72,13 +72,13 @@ const PostCard = ({ post, onLike, onComment }) => {
           <FiMessageCircle size={20} />
           <span className="text-sm">{post.comments?.length || 0}</span>
         </button>
-        
+
         <button className="flex items-center space-x-2 py-2 px-4 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
           <FiShare2 size={20} />
           <span className="text-sm">Share</span>
         </button>
       </div>
-      
+
       {/* Comments Section */}
       {showComments && (
         <div className="border-t p-4 space-y-4 bg-gray-50">
@@ -92,11 +92,11 @@ const PostCard = ({ post, onLike, onComment }) => {
             />
             <button type="submit" className="btn-primary px-4 text-sm">Post</button>
           </form>
-          
+
           {post.comments?.map((comment) => (
             <div key={comment._id} className="flex space-x-3">
               <img
-                src={comment.user?.avatar || `https://ui-avatars.com/api/?name=${comment.user?.firstName}+${comment.user?.lastName}&background=gray&color=fff`}
+                src={comment.user?.profilePicture || `https://ui-avatars.com/api/?name=${comment.user?.firstName}+${comment.user?.lastName}&background=gray&color=fff`}
                 alt=""
                 className="w-8 h-8 rounded-full"
               />

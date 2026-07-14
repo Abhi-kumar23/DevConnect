@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import validator from "validator";
 
 const userSchema = new mongoose.Schema({
     firstName: {
@@ -23,7 +24,10 @@ const userSchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
         trim: true,
-        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+        validate:{
+            validator: validator.isEmail,
+            message:" Please provide a valid email ",
+        },
     },
     password: {
         type: String,
@@ -31,48 +35,96 @@ const userSchema = new mongoose.Schema({
         minlength: [6, 'Password must be at least 6 characters'],
         select: false
     },
+
+    provider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+
+    googleId: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
     role: {
         type: String,
         enum: ['user', 'moderator', 'admin'],
         default: 'user'
     },
+
     isActive: {
         type: Boolean,
         default: true
     },
+
     isEmailVerified: {
         type: Boolean,
         default: false
     },
+
+    emailVerifiedAt: {
+      type: Date,
+    },
+
     profilePicture: {
         type: String,
         default: null
     },
+
+    coverPhoto: {
+      type: String,
+      default: "",
+    },
+
+    refreshToken: {
+      type: String,
+      select: false,
+    },
+
+    passwordChangedAt: Date,
+
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+
+    passwordResetExpires: Date,
+
+    emailVerificationToken: {
+      type: String,
+      select: false,
+    },
+
+    emailVerificationExpires: Date,
+
+    lastLogin: Date,
+
+
     connections: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+
     pendingRequests: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+
     sentRequests: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
-    lastLogin: {
-        type: Date
+
+
+    loginAttempts: {
+      type: Number,
+      default: 0,
     },
-    passwordChangedAt: Date,
-    passwordResetToken: String,
-    passwordResetExpires: Date,
-    emailVerificationToken: String,
-    emailVerificationExpires: Date,
-    twoFactorEnabled: {
-        type: Boolean,
-        default: false
-    },
-    twoFactorSecret: String
+
+    lockUntil: Date,
+
 }, {
     timestamps: true,
     toJSON: { virtuals: true },
@@ -125,37 +177,9 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
     return false;
 };
 
-// Generate password reset token
-userSchema.methods.createPasswordResetToken = function() {
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    this.passwordResetToken = crypto
-        .createHash('sha256')
-        .update(resetToken)
-        .digest('hex');
-    
-    this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-    
-    return resetToken;
-};
 
-// Generate email verification token
-userSchema.methods.createEmailVerificationToken = function() {
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    
-    this.emailVerificationToken = crypto
-        .createHash('sha256')
-        .update(verificationToken)
-        .digest('hex');
-    
-    this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-    
-    return verificationToken;
-};
-
-// Indexes
 // userSchema.index({ email: 1 });
-// userSchema.index({ firstName: 'text', lastName: 'text' });
+
 
 const User = mongoose.model("User", userSchema);
 

@@ -34,40 +34,83 @@ export const AuthProvider = ({ children }) => {
     loadUser()
   }, [])
 
+
   const login = async (email, password) => {
-    try {
-      const response = await api.post('/auth/login', { email, password })
-      const { data: userData } = response.data
-      const token = userData.token
-      localStorage.setItem('token', token)
-      setUser(userData)
-      toast.success('Login successful!')
-      navigate('/')
-      return true
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed')
-      return false
+  try {
+    const response = await api.post("/auth/login", { email, password });
+    const userData = response.data.data;
+
+    localStorage.setItem("token", userData.token);
+    setUser(userData.user);
+
+    toast.success("Login successful!");
+    navigate("/");
+
+    return { success: true };
+  } catch (error) {
+    const message = error.response?.data?.message || "Login failed";
+
+    if (error.response?.status === 403 && /verify your email/i.test(message)) {
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     }
+
+    toast.error(message);
+    return { success: false, message };
   }
+};
+
+const verifyEmail = async (email, otp) => {
+  try {
+    const response = await api.post("/auth/verify-otp", { email, otp });
+    const userData = response.data.data;
+
+    localStorage.setItem("token", userData.token);
+    setUser(userData.user);
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "OTP verification failed",
+    };
+  }
+};
+
+verifyEmail.resend = async (email) => {
+  try {
+    await api.post("/auth/resend-otp", { email });
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to resend OTP",
+    };
+  }
+};
 
   const register = async (firstName, lastName, email, password) => {
     try {
-      const response = await api.post('/auth/register', { firstName, lastName, email, password })
-      const { data: userData } = response.data
-      const token = userData.token
-      localStorage.setItem('token', token)
-      setUser(userData)
-      toast.success('Registration successful!')
-      // Wait a moment before navigating
-      setTimeout(() => {
-        navigate('/')
-      }, 100)
-      return true
+      const response = await api.post("/auth/register", {
+        firstName,
+        lastName,
+        email,
+        password,
+      });
+
+      toast.success(response.data.message);
+
+      return {
+        success: true,
+        email,
+        requiresVerification: response.data.data.requiresVerification,
+      };
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed')
-      return false
+      toast.error(error.response?.data?.message || "Registration failed");
+
+      return { success: false };
     }
-  }
+  };
+
 
   const logout = () => {
     localStorage.removeItem('token')
@@ -81,7 +124,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, login, register,verifyEmail, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   )
