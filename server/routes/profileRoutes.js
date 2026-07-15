@@ -6,6 +6,7 @@ import {
     createOrUpdateProfile,
     getMyProfile,
     uploadProfilePic,
+    uploadCoverPhoto,
     deleteProfile,
     getProfileByUserId,
     getAllProfiles,
@@ -27,6 +28,7 @@ router.route('/')
     .put(createOrUpdateProfile);
 
 router.post("/avatar", upload.single("avatar"), uploadProfilePic); 
+router.post("/cover", upload.single("cover"), uploadCoverPhoto);
 router.delete("/", deleteProfile); 
 
 export default router;

@@ -9,7 +9,7 @@ const getNotifications = asyncHandler(async (req, res) => {
     const notifications = await Notification.find({
         recipient: req.user._id,
     })
-    .populate("sender", "firstName lastName avatar")
+    .populate("sender", "firstName lastName profilePicture")
     .sort({ createdAt: -1 })
     .limit(50);
 
@@ -52,6 +52,16 @@ const getUnreadCount = asyncHandler(async (req, res) => {
     );
 });
 
+const markAllAsRead = asyncHandler(async (req, res) => {
+    const result = await Notification.updateMany(
+        { recipient: req.user._id, isRead: false },
+        { $set: { isRead: true, readAt: new Date() } },
+    );
+    return res.status(200).json(
+        new ApiResponse(200, { updated: result.modifiedCount }, "Notifications marked as read")
+    );
+});
+
 // Clear all notifications for current user
 const clearNotifications = asyncHandler(async (req, res) => {
     await Notification.deleteMany({ recipient: req.user._id });
@@ -64,6 +74,7 @@ const clearNotifications = asyncHandler(async (req, res) => {
 export {
     getNotifications,
     markAsRead,
+    markAllAsRead,
     getUnreadCount,
     clearNotifications,
 };

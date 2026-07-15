@@ -70,12 +70,25 @@ const userSchema = new mongoose.Schema({
 
     profilePicture: {
         type: String,
-        default: null
+        default: null,
+        alias: "avatar"
+    },
+
+    profilePicturePublicId: {
+      type: String,
+      default: null,
+      select: false,
     },
 
     coverPhoto: {
       type: String,
       default: "",
+    },
+
+    coverPhotoPublicId: {
+      type: String,
+      default: null,
+      select: false,
     },
 
     refreshToken: {

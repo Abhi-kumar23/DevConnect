@@ -19,7 +19,7 @@ const Projects = () => {
     const createMutation = useMutation({
         mutationFn: projectService.createProject,
         onSuccess: () => {
-            queryClient.invalidateQueries(['projects']);
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
             setShowCreateForm(false);
             toast.success('Project created successfully!');
         },
@@ -30,9 +30,9 @@ const Projects = () => {
 
     const joinMutation = useMutation({
         mutationFn: ({ projectId, message }) => projectService.sendJoinRequest(projectId, message),
-        onSuccess: (response, variables) => {
-            queryClient.invalidateQueries(['projects']);
-            if (response.data?.data?.message === 'Joined project successfully') {
+        onSuccess: (response) => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            if (response.data?.message === 'Joined project successfully') {
                 toast.success('Joined project!');
             } else {
                 toast.success('Join request sent!');
@@ -176,6 +176,7 @@ const Projects = () => {
                                 title: formData.get('title'),
                                 description: formData.get('description'),
                                 githubLink: formData.get('githubLink'),
+                                demoLink: formData.get('demoLink'),
                                 technologies: formData.get('technologies'),
                                 visibility: formData.get('visibility')
                             });
@@ -193,6 +194,10 @@ const Projects = () => {
                                 <input name="githubLink" type="url" className="input-primary w-full" />
                             </div>
                             <div>
+                                <label className="block text-sm font-medium mb-1">Live Demo Link</label>
+                                <input name="demoLink" type="url" className="input-primary w-full" />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium mb-1">Technologies (comma separated)</label>
                                 <input name="technologies" placeholder="React, Node.js, MongoDB" className="input-primary w-full" />
                             </div>
@@ -204,8 +209,8 @@ const Projects = () => {
                                 </select>
                             </div>
                             <div className="flex space-x-3 pt-2">
-                                <button type="submit" className="btn-primary flex-1" disabled={createMutation.isLoading}>
-                                    {createMutation.isLoading ? 'Creating...' : 'Create'}
+                                <button type="submit" className="btn-primary flex-1" disabled={createMutation.isPending}>
+                                    {createMutation.isPending ? 'Creating...' : 'Create'}
                                 </button>
                                 <button type="button" onClick={() => setShowCreateForm(false)} className="btn-secondary flex-1">
                                     Cancel

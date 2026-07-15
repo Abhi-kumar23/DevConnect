@@ -1,14 +1,17 @@
 // src/pages/Connections.jsx
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { connectionsService } from '../services/connections'
 import Loading from '../components/Common/Loading'
 import toast from 'react-hot-toast'
+import { getAvatarUrl } from '../utils/avatar'
 
 const Connections = () => {
     const [activeTab, setActiveTab] = useState('connections'); // Change default to 'connections'
     const [searchTerm, setSearchTerm] = useState('')
     const queryClient = useQueryClient();
+    const navigate = useNavigate()
 
     // Get connections
     const { data: connectionsData, isLoading: connectionsLoading } = useQuery({
@@ -149,7 +152,7 @@ const Connections = () => {
                         <div key={user._id} className="bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow">
                             <div className="flex items-start space-x-4">
                                 <img
-                                    src={user.avatar || user.profilePicture || `https://ui-avatars.com/api/?name=${user.firstName}+${user.lastName}&background=3b82f6&color=fff&size=80`}
+                                    src={getAvatarUrl(user)}
                                     alt={user.firstName}
                                     className="w-16 h-16 rounded-full object-cover"
                                 />
@@ -167,7 +170,7 @@ const Connections = () => {
                             </div>
                             <div className="mt-3 pt-3 border-t">
                                 <button
-                                    onClick={() => window.location.href = `/chat?userId=${user._id}`}
+                                    onClick={() => navigate(`/chat?userId=${user._id}`)}
                                     className="w-full btn-secondary py-2 text-sm"
                                 >
                                     Message
@@ -190,7 +193,7 @@ const Connections = () => {
                         <div key={user._id} className="bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow">
                             <div className="flex items-start space-x-4">
                                 <img
-                                    src={user.avatar || user.profilePicture || `https://ui-avatars.com/api/?name=${user.firstName}+${user.lastName}&background=orange&color=fff&size=80`}
+                                    src={getAvatarUrl(user)}
                                     alt={user.firstName}
                                     className="w-16 h-16 rounded-full object-cover"
                                 />
@@ -209,14 +212,14 @@ const Connections = () => {
                             <div className="mt-3 pt-3 border-t flex space-x-2">
                                 <button
                                     onClick={() => acceptMutation.mutate(user._id)}
-                                    disabled={acceptMutation.isLoading}
+                                    disabled={acceptMutation.isPending}
                                     className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
                                 >
                                     Accept
                                 </button>
                                 <button
                                     onClick={() => rejectMutation.mutate(user._id)}
-                                    disabled={rejectMutation.isLoading}
+                                    disabled={rejectMutation.isPending}
                                     className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
                                 >
                                     Reject
@@ -239,7 +242,7 @@ const Connections = () => {
                         <div key={user._id} className="bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow">
                             <div className="flex items-start space-x-4">
                                 <img
-                                    src={user.avatar || user.profilePicture || `https://ui-avatars.com/api/?name=${user.firstName}+${user.lastName}&background=gray&color=fff&size=80`}
+                                    src={getAvatarUrl(user)}
                                     alt={user.firstName}
                                     className="w-16 h-16 rounded-full object-cover"
                                 />
@@ -263,10 +266,10 @@ const Connections = () => {
                             <div className="mt-3 pt-3 border-t">
                                 <button
                                     onClick={() => sendMutation.mutate(user._id)}
-                                    disabled={sendMutation.isLoading}
+                                    disabled={sendMutation.isPending}
                                     className="w-full btn-primary py-2 text-sm disabled:opacity-50"
                                 >
-                                    {sendMutation.isLoading ? 'Sending...' : 'Connect'}
+                                    {sendMutation.isPending ? 'Sending...' : 'Connect'}
                                 </button>
                             </div>
                         </div>

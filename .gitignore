@@ -1,17 +1,10 @@
-cat > .gitignore << 'EOF'
-# OS files
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
 .DS_Store
-Thumbs.db
-
-# IDE
+*.log
 .vscode/
 .idea/
-*.swp
-
-# Environment (if any at root)
-.env
-.env.local
-
-# Logs
-*.log
-EOF

@@ -1,45 +1,41 @@
 import User from "../models/User.js";
 import Profile from "../models/Profile.js";
 import Post from "../models/Post.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
-const globalSearch = async (req, res) => {
+const globalSearch = async (req, res, next) => {
   try {
-    const { q, type } = req.query;
-
-    if (!q) {
-      return res.status(400).json({ message: "Search query required" });
+    const q = String(req.query.q || "").trim();
+    const type = req.query.type;
+    if (!q) return res.status(400).json({ message: "Search query is required" });
+    if (type && !["users", "profiles", "posts"].includes(type)) {
+      return res.status(400).json({ message: "Search type must be users, profiles, or posts" });
     }
 
-    const regex = new RegExp(q, "i");
-    let result = {};
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+    const results = {};
 
-    // USERS
     if (!type || type === "users") {
-      result.users = await User.find({
-        $or: [{ name: regex }, { email: regex }]
-      }).select("name email");
+      results.users = await User.find({
+        $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
+      }).select("firstName lastName profilePicture").limit(10);
     }
-
-    // PROFILES
     if (!type || type === "profiles") {
-      result.profiles = await Profile.find({
-        $or: [{ bio: regex }, { skills: { $in: [regex] } }]
-      }).populate("user", "name email");
+      results.profiles = await Profile.find({
+        $or: [{ bio: regex }, { skills: regex }, { headline: regex }, { location: regex }],
+      }).populate("user", "firstName lastName profilePicture").limit(10);
     }
-
-    // POSTS
     if (!type || type === "posts") {
-      result.posts = await Post.find({ text: regex })
-        .populate("user", "name email")
+      results.posts = await Post.find({ content: regex, visibility: "public" })
+        .populate("user", "firstName lastName profilePicture")
         .sort({ createdAt: -1 })
         .limit(20);
     }
-
-    res.json(result);
-
+    return res.status(200).json(new ApiResponse(200, results, "Search completed"));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
-export {globalSearch};
+export { globalSearch };

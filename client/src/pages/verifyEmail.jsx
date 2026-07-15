@@ -6,24 +6,19 @@ import { useAuth } from "../context/AuthContext";
 const VerifyEmail = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { verifyEmail } = useAuth();
+  const { verifyEmail, resendVerificationCode } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const email = new URLSearchParams(location.search).get("email") || "";
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [timer, setTimer] = useState(0);
 
   useEffect(() => {
-    const emailParam = new URLSearchParams(location.search).get("email");
-
-    if (!emailParam) {
+    if (!email) {
       navigate("/register", { replace: true });
-      return;
     }
-
-    setEmail(emailParam);
-  }, [location.search, navigate]);
+  }, [email, navigate]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -62,7 +57,7 @@ const VerifyEmail = () => {
     setLoading(true);
     setError("");
 
-    const result = await verifyEmail.resend(email);
+    const result = await resendVerificationCode(email);
 
     setLoading(false);
 

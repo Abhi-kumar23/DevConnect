@@ -26,12 +26,19 @@ const app = express();
 app.use(cookieParser());
 
 // app.use(cors());
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://127.0.0.1:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+  },
+  credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
 const apiLimiter = rateLimit({
@@ -73,18 +80,27 @@ app.get('/health', (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  res.status(err.status || 500).json({ message: err.message });
+  if (err.name === "MulterError") {
+    return res.status(400).json({ message: err.code === "LIMIT_FILE_SIZE" ? "Images must be 5 MB or smaller" : err.message });
+  }
+  const statusCode = err.statusCode || err.status || 500;
+  return res.status(statusCode).json({
+    success: false,
+    message: err.message || "Something went wrong",
+    errors: err.errors || [],
+  });
 });
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   },
 });
 
+app.set("io", io);
 initSocket(io);
 
 connectDB().then(async () => {

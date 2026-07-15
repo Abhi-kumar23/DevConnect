@@ -9,10 +9,16 @@ const postSchema = new mongoose.Schema(
   },
   content: {
     type: String,
-    required: true,
+    default: "",
+    trim: true,
+    maxlength: [5000, "Post content cannot exceed 5000 characters"],
   },
   image: {
     type: String,
+  },
+  imagePublicId: {
+    type: String,
+    select: false,
   },
   visibility: {
     type: String,

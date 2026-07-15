@@ -35,6 +35,7 @@ const PostForm = ({ onSubmit }) => {
       setContent("");
       setImage(null);
     } catch {
+      // The mutation displays the request error; keep the entered form intact.
     } finally {
       setLoading(false);
     }

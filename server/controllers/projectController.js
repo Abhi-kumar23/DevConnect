@@ -14,12 +14,20 @@ const createProject = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Title and description are required");
     }
 
+    if (visibility && !["public", "private"].includes(visibility)) {
+        throw new ApiError(400, "Visibility must be public or private");
+    }
+
+    const technologyList = Array.isArray(technologies)
+        ? technologies
+        : String(technologies || "").split(",");
+
     const project = await Project.create({
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         githubLink,
         demoLink,
-        technologies: technologies ? technologies.split(',').map(t => t.trim()) : [],
+        technologies: [...new Set(technologyList.map((technology) => String(technology).trim()).filter(Boolean))],
         visibility: visibility || 'public',
         createdBy: req.user._id,
         members: [{ user: req.user._id, role: 'owner' }]
@@ -34,8 +42,8 @@ const createProject = asyncHandler(async (req, res) => {
     project.groupChat = groupChat._id;
     await project.save();
 
-    await project.populate('createdBy', 'firstName lastName email avatar');
-    await project.populate('members.user', 'firstName lastName email avatar');
+    await project.populate('createdBy', 'firstName lastName profilePicture');
+    await project.populate('members.user', 'firstName lastName profilePicture');
 
     return res.status(201).json(
         new ApiResponse(201, project, "Project created successfully")
@@ -66,9 +74,9 @@ const getAllProjects = asyncHandler(async (req, res) => {
     }
 
     const projects = await Project.find(query)
-        .populate('createdBy', 'firstName lastName email avatar')
-        .populate('members.user', 'firstName lastName email avatar')
-        .populate('pendingRequests.user', 'firstName lastName email avatar')
+        .populate('createdBy', 'firstName lastName profilePicture')
+        .populate('members.user', 'firstName lastName profilePicture')
+        .populate('pendingRequests.user', 'firstName lastName profilePicture')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -93,9 +101,9 @@ const getProjectById = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
 
     const project = await Project.findById(projectId)
-        .populate('createdBy', 'firstName lastName email avatar headline')
-        .populate('members.user', 'firstName lastName email avatar headline')
-        .populate('pendingRequests.user', 'firstName lastName email avatar headline');
+        .populate('createdBy', 'firstName lastName email profilePicture')
+        .populate('members.user', 'firstName lastName email profilePicture')
+        .populate('pendingRequests.user', 'firstName lastName email profilePicture');
 
     if (!project) {
         throw new ApiError(404, "Project not found");
@@ -134,7 +142,7 @@ const sendJoinRequest = asyncHandler(async (req, res) => {
 
         // Add to group chat
         const groupChat = await ProjectGroupChat.findById(project.groupChat);
-        if (groupChat && !groupChat.participants.includes(req.user._id)) {
+        if (groupChat && !groupChat.participants.some((id) => id.toString() === req.user._id.toString())) {
             groupChat.participants.push(req.user._id);
             await groupChat.save();
         }
@@ -195,7 +203,7 @@ const acceptJoinRequest = asyncHandler(async (req, res) => {
 
     // Add to group chat
     const groupChat = await ProjectGroupChat.findById(project.groupChat);
-    if (groupChat && !groupChat.participants.includes(userId)) {
+    if (groupChat && !groupChat.participants.some((id) => id.toString() === userId.toString())) {
         groupChat.participants.push(userId);
         await groupChat.save();
     }
@@ -255,7 +263,7 @@ const getProjectChat = asyncHandler(async (req, res) => {
     }
 
     const groupChat = await ProjectGroupChat.findById(project.groupChat)
-        .populate('messages.sender', 'firstName lastName email avatar');
+        .populate('messages.sender', 'firstName lastName profilePicture');
 
     return res.status(200).json(
         new ApiResponse(200, groupChat, "Chat fetched successfully")
@@ -294,10 +302,12 @@ const sendProjectMessage = asyncHandler(async (req, res) => {
     groupChat.lastMessageAt = new Date();
     await groupChat.save();
 
-    await groupChat.populate('messages.sender', 'firstName lastName email avatar');
+    await groupChat.populate('messages.sender', 'firstName lastName profilePicture');
+    const populatedMessage = groupChat.messages[groupChat.messages.length - 1];
+    req.app.get("io")?.to(`project_${projectId}`).emit("projectMessage", populatedMessage);
 
     return res.status(201).json(
-        new ApiResponse(201, message, "Message sent successfully")
+        new ApiResponse(201, populatedMessage, "Message sent successfully")
     );
 });
 

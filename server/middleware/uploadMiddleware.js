@@ -1,7 +1,8 @@
 import multer from "multer";
 import fs from "fs";
+import path from "path";
 
-const tempDir = "./public/temp";
+const tempDir = path.resolve(process.cwd(), "public", "temp");
 if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
@@ -11,13 +12,23 @@ const storage = multer.diskStorage({
       cb(null, tempDir);
   },
   filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    const safeName = path
+      .basename(file.originalname)
+      .replace(/[^a-zA-Z0-9._-]/g, "-");
+    cb(null, `${Date.now()}-${safeName}`);
   },
 });
 
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 1 * 1024 * 1024, //5MB
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype?.startsWith("image/")) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only image files are allowed"));
   },
 });
