@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { FiArrowLeft, FiSend } from 'react-icons/fi';
 import { projectService } from '../services/projects';
 import { useAuth } from '../context/AuthContext';
@@ -8,12 +8,13 @@ import Loading from '../components/Common/Loading';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 
+const EMPTY_MESSAGES = [];
+
 const ProjectChat = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const queryClient = useQueryClient();
-    const [socket, setSocket] = useState(null);
+    const socketRef = useRef(null);
     const [messages, setMessages] = useState([]);
     const [messageText, setMessageText] = useState('');
     const messagesEndRef = useRef(null);
@@ -41,12 +42,14 @@ const ProjectChat = () => {
 
     const project = data?.data?.data || data?.data;
     const chat = chatData?.data?.data || chatData?.data;
-    const chatMessages = chat?.messages || [];
+    const chatMessages = chat?.messages || EMPTY_MESSAGES;
 
     // Socket.io setup
     useEffect(() => {
-        const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000');
-        setSocket(newSocket);
+        const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000', {
+            auth: { token: localStorage.getItem('token') },
+        });
+        socketRef.current = newSocket;
 
         newSocket.emit('joinProjectChat', projectId);
 
@@ -56,13 +59,12 @@ const ProjectChat = () => {
 
         return () => {
             newSocket.disconnect();
+            socketRef.current = null;
         };
     }, [projectId]);
 
     useEffect(() => {
-        if (chatMessages.length > 0) {
-            setMessages(chatMessages);
-        }
+        setMessages(chatMessages);
     }, [chatMessages]);
 
     useEffect(() => {
@@ -148,14 +150,14 @@ const ProjectChat = () => {
                     onChange={(e) => setMessageText(e.target.value)}
                     placeholder="Share GitHub links, ideas..."
                     className="flex-1 input-primary text-sm md:text-base"
-                    disabled={sendMutation.isLoading}
+                    disabled={sendMutation.isPending}
                 />
                 <button
                     type="submit"
                     className="btn-primary px-4 md:px-6 disabled:opacity-50"
-                    disabled={sendMutation.isLoading || !messageText.trim()}
+                    disabled={sendMutation.isPending || !messageText.trim()}
                 >
-                    {sendMutation.isLoading ? '...' : <FiSend size={18} />}
+                    {sendMutation.isPending ? '...' : <FiSend size={18} />}
                 </button>
             </form>
         </div>

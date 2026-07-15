@@ -14,3 +14,5 @@ const PostSkeleton = () => (
         </div>
     </div>
 );
+
+export default PostSkeleton;

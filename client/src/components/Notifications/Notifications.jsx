@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { notificationService } from '../../services/notifications'
@@ -6,6 +7,7 @@ import Loading from '../../components/Common/Loading'
 
 const Notifications = () => {
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
 
     const { data: notificationsData, isLoading } = useQuery({
         queryKey: ["notifications"],
@@ -26,7 +28,7 @@ const Notifications = () => {
             await markAsReadMutation.mutateAsync(notification._id)
         }
         if (notification.actionUrl) {
-            window.location.href = notification.actionUrl
+            navigate(notification.actionUrl)
         }
     }
 

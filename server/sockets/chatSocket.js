@@ -1,67 +1,46 @@
-import mongoose from "mongoose";
-import Notification from "../models/Notification.js";
+import jwt from "jsonwebtoken";
+import Chat from "../models/Chat.js";
+import Project from "../models/Project.js";
 
 const onlineUsers = new Map();
 
 const initSocket = (io) => {
-    io.on("connection", (socket) => {
-        console.log("User connected:", socket.id);
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) throw new Error("Authentication required");
+      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      socket.userId = decoded._id;
+      next();
+    } catch {
+      next(new Error("Unauthorized"));
+    }
+  });
 
-        socket.on("userOnline", (userId) => {
-            onlineUsers.set(userId, socket.id);
-            io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-        });
+  io.on("connection", (socket) => {
+    const userId = socket.userId.toString();
+    onlineUsers.set(userId, socket.id);
+    socket.join(`user:${userId}`);
+    io.emit("onlineUsers", [...onlineUsers.keys()]);
 
-        socket.on("joinChat", (chatId) => {
-            socket.join(chatId);
-        });
-
-        socket.on("sendMessage", async (data) => {
-            const message = await Message.create({
-                chat: data.chatId,
-                sender: data.senderId,
-                text: data.text,
-                readBy: [data.senderId],
-            });
-
-            await Notification.create({
-                recipient: data.receiver,
-                sender: data.sender,
-                type: "message",
-                message: "sent you a message",
-            });
-
-            io.to(data.chatId).emit("receiveMessage", message);
-        });
-
-
-        socket.on("typing", ({ chatId, userId }) => {
-            socket.to(chatId).emit("typing", userId);
-        });
-
-        socket.on("stopTyping", ({ chatId, userId }) => {
-            socket.to(chatId).emit("stopTyping", userId);
-        });
-
-        socket.on("markAsRead", async ({ chatId, userId }) => {
-            await Message.updateMany(
-                { chat: chatId, readBy: { $ne: userId } },
-                { $push: { readBy: userId } }
-            );
-        });
-        socket.on('joinProjectChat', (projectId) => {
-            socket.join(`project_${projectId}`);
-        });
-        socket.on("disconnect", () => {
-            for (let [userId, sockId] of onlineUsers.entries()) {
-                if (sockId === socket.id) {
-                    onlineUsers.delete(userId);
-                    break;
-                }
-            }
-            io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-        });
+    socket.on("joinChat", async (chatId) => {
+      const chat = await Chat.exists({ _id: chatId, participants: userId });
+      if (chat) socket.join(chatId);
     });
+
+    socket.on("joinProjectChat", async (projectId) => {
+      const project = await Project.findOne({ _id: projectId, "members.user": userId }).select("_id");
+      if (project) socket.join(`project_${projectId}`);
+    });
+
+    socket.on("typing", ({ chatId }) => socket.to(chatId).emit("typing", userId));
+    socket.on("stopTyping", ({ chatId }) => socket.to(chatId).emit("stopTyping", userId));
+
+    socket.on("disconnect", () => {
+      if (onlineUsers.get(userId) === socket.id) onlineUsers.delete(userId);
+      io.emit("onlineUsers", [...onlineUsers.keys()]);
+    });
+  });
 };
 
 export default initSocket;

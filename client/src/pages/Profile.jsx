@@ -1,9 +1,11 @@
 // src/pages/Profile.jsx (Updated with tabs)
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { profileService } from '../services/profile'
 import { postsService } from '../services/posts'
+import { projectService } from '../services/projects'
 import ProfileCard from '../components/Profile/ProfileCard'
 import PostCard from '../components/Posts/PostCard'
 import Loading from '../components/Common/Loading'
@@ -11,6 +13,7 @@ import { FiFileText, FiFolder } from 'react-icons/fi'
 
 const Profile = () => {
     const { user } = useAuth()
+    const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState('posts')
     
     const { data: profileResponse, isLoading: profileLoading } = useQuery({
@@ -18,22 +21,33 @@ const Profile = () => {
         queryFn: profileService.getMyProfile,
     })
     
-    const { data: feedResponse, isLoading: postsLoading } = useQuery({
-        queryKey: ["feed", 1],
-        queryFn: () => postsService.getFeed(1, 10),
+    const { data: postsResponse, isLoading: postsLoading } = useQuery({
+        queryKey: ["userPosts", user?._id],
+        queryFn: () => postsService.getUserPosts(user._id, 1, 20),
+        enabled: !!user?._id,
     })
+
+    const { data: projectsResponse } = useQuery({
+        queryKey: ['projects', 'my'],
+        queryFn: () => projectService.getProjects('my'),
+        enabled: !!user?._id,
+    })
+
+    const refreshPosts = () => queryClient.invalidateQueries({ queryKey: ['userPosts', user?._id] })
+    const likeMutation = useMutation({ mutationFn: postsService.likePost, onSuccess: refreshPosts })
+    const commentMutation = useMutation({ mutationFn: ({ postId, text }) => postsService.commentPost(postId, text), onSuccess: refreshPosts })
 
     if (profileLoading || postsLoading) return <Loading />
 
     const profileData = profileResponse?.data?.data || profileResponse?.data
-    const postsArray = feedResponse?.data?.data?.data || feedResponse?.data?.data || []
-    const userPosts = postsArray.filter(post => post.user?._id === user?._id)
+    const userPosts = postsResponse?.data?.data?.data || postsResponse?.data?.data || []
+    const projects = projectsResponse?.data?.data?.projects || projectsResponse?.data?.projects || []
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <ProfileCard 
                 profile={profileData} 
-                user={user}
+                user={{ ...user, ...profileData?.user }}
                 postsCount={userPosts.length}
             />
             
@@ -61,7 +75,7 @@ const Profile = () => {
                             }`}
                         >
                             <FiFolder size={18} />
-                            <span>Projects (0)</span>
+                            <span>Projects ({projects.length})</span>
                         </button>
                     </div>
                 </div>
@@ -79,20 +93,25 @@ const Profile = () => {
                                     <PostCard 
                                         key={post._id} 
                                         post={post}
-                                        onLike={() => {}}
-                                        onComment={() => {}}
+                                        onLike={() => likeMutation.mutate(post._id)}
+                                        onComment={(text) => commentMutation.mutate({ postId: post._id, text })}
                                     />
                                 ))}
                             </div>
                         )
                     )}
                     
-                    {activeTab === 'projects' && (
-                        <div className="text-center py-8 text-gray-500">
-                            <p>No projects yet</p>
-                            <p className="text-sm mt-2">Showcase your work to the community!</p>
+                    {activeTab === 'projects' && (projects.length ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {projects.map((project) => (
+                                <Link key={project._id} to={`/projects/${project._id}`} className="border rounded-lg p-4 hover:border-primary-300 hover:shadow-sm transition">
+                                    <h3 className="font-semibold">{project.title}</h3>
+                                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
+                                    <div className="flex flex-wrap gap-1 mt-3">{project.technologies?.slice(0, 4).map((tech) => <span key={tech} className="text-xs rounded-full bg-gray-100 px-2 py-1">{tech}</span>)}</div>
+                                </Link>
+                            ))}
                         </div>
-                    )}
+                    ) : <div className="text-center py-8 text-gray-500"><p>No projects yet</p><p className="text-sm mt-2">Showcase your work to the community!</p></div>)}
                 </div>
             </div>
         </div>

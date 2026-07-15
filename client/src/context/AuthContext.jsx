@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await api.get('/auth/profile')
           setUser(response.data.data);
-        } catch (error) {
+        } catch {
           localStorage.removeItem('token')
         }
       }
@@ -59,7 +59,23 @@ export const AuthProvider = ({ children }) => {
   }
 };
 
-const verifyEmail = async (email, otp) => {
+  const loginWithGoogle = async (idToken) => {
+    try {
+      const response = await api.post('/auth/google', { idToken })
+      const userData = response.data.data
+      localStorage.setItem('token', userData.token)
+      setUser(userData.user)
+      toast.success('Login successful!')
+      navigate('/')
+      return { success: true }
+    } catch (error) {
+      const message = error.response?.data?.message || 'Google login failed'
+      toast.error(message)
+      return { success: false, message }
+    }
+  }
+
+  const verifyEmail = async (email, otp) => {
   try {
     const response = await api.post("/auth/verify-otp", { email, otp });
     const userData = response.data.data;
@@ -74,19 +90,16 @@ const verifyEmail = async (email, otp) => {
       message: error.response?.data?.message || "OTP verification failed",
     };
   }
-};
+  };
 
-verifyEmail.resend = async (email) => {
-  try {
-    await api.post("/auth/resend-otp", { email });
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Failed to resend OTP",
-    };
-  }
-};
+  const resendVerificationCode = async (email) => {
+    try {
+      await api.post("/auth/resend-otp", { email });
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || "Failed to resend OTP" };
+    }
+  };
 
   const register = async (firstName, lastName, email, password) => {
     try {
@@ -112,7 +125,12 @@ verifyEmail.resend = async (email) => {
   };
 
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // Clearing the local session is still the correct outcome if the server is unavailable.
+    }
     localStorage.removeItem('token')
     setUser(null)
     toast.success('Logged out')
@@ -124,7 +142,7 @@ verifyEmail.resend = async (email) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register,verifyEmail, logout, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, register, verifyEmail, resendVerificationCode, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   )

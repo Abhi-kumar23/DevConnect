@@ -1,29 +1,33 @@
 // src/components/Profile/ProfileCard.jsx (Enhanced)
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { FiEdit2, FiMapPin, FiBriefcase, FiGithub, FiLinkedin, FiTwitter, FiUsers, FiFileText, FiFolder } from 'react-icons/fi'
+import { FiEdit2, FiMapPin, FiGithub, FiLinkedin, FiTwitter } from 'react-icons/fi'
+import { getAvatarUrl } from '../../utils/avatar'
 
-const ProfileCard = ({ profile, user, postsCount = 0 }) => {
+const ProfileCard = ({ profile, user, postsCount = 0, isOwnProfile = true }) => {
     const completion = profile?.completionPercentage || 0
     const joinedDate = user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : ''
+    const connectionsCount = profile?.connectionCount ?? user?.connections?.length ?? 0
 
     return (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             {/* Cover Image */}
-            <div className="bg-gradient-to-r from-primary-500 to-primary-700 h-32"></div>
+            <div className="h-36 bg-gradient-to-r from-primary-500 via-primary-600 to-indigo-700">
+                {user?.coverPhoto && <img src={user.coverPhoto} alt="" className="w-full h-full object-cover" />}
+            </div>
             
             <div className="px-6 pb-6 relative">
                 {/* Avatar */}
                 <div className="flex justify-between items-end -mt-12 mb-4">
                     <img
-                        src={user?.avatar || user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff&size=120`}
+                        src={getAvatarUrl(user)}
                         alt={user?.firstName}
                         className="w-24 h-24 rounded-full border-4 border-white object-cover"
                     />
-                    <Link to="/profile/edit" className="btn-secondary flex items-center space-x-2 text-sm">
+                    {isOwnProfile && <Link to="/profile/edit" className="btn-secondary flex items-center space-x-2 text-sm">
                         <FiEdit2 size={14} />
                         <span>Edit</span>
-                    </Link>
+                    </Link>}
                 </div>
                 
                 {/* User Info */}
@@ -52,7 +56,7 @@ const ProfileCard = ({ profile, user, postsCount = 0 }) => {
                 {/* Stats */}
                 <div className="mt-4 flex space-x-6 border-t pt-4">
                     <div>
-                        <p className="font-bold text-lg">{profile?.connections?.length || 0}</p>
+                        <p className="font-bold text-lg">{connectionsCount}</p>
                         <p className="text-xs text-gray-500">connections</p>
                     </div>
                     <div>
@@ -60,8 +64,8 @@ const ProfileCard = ({ profile, user, postsCount = 0 }) => {
                         <p className="text-xs text-gray-500">posts</p>
                     </div>
                     <div>
-                        <p className="font-bold text-lg">{profile?.projects?.length || 0}</p>
-                        <p className="text-xs text-gray-500">projects</p>
+                        <p className="font-bold text-lg">{profile?.profileViews || 0}</p>
+                        <p className="text-xs text-gray-500">profile views</p>
                     </div>
                 </div>
                 
@@ -99,7 +103,7 @@ const ProfileCard = ({ profile, user, postsCount = 0 }) => {
                 </div>
                 
                 {/* Profile Completion */}
-                <div className="mt-6">
+                {isOwnProfile && <div className="mt-6">
                     <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-600">Profile Completion</span>
                         <span className="text-primary-600 font-medium">{completion}%</span>
@@ -110,7 +114,7 @@ const ProfileCard = ({ profile, user, postsCount = 0 }) => {
                             style={{ width: `${completion}%` }}
                         ></div>
                     </div>
-                </div>
+                </div>}
             </div>
         </div>
     )

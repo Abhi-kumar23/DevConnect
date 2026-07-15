@@ -24,6 +24,9 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // These components intentionally hydrate API data into editable local state.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

@@ -4,7 +4,6 @@ import { GoogleLogin } from "@react-oauth/google";
 import { FiMail, FiLock, FiArrowRight } from "react-icons/fi";
 
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
 import PublicNavbar from "../components/Layout/PublicNavbar";
 
 const Login = () => {
@@ -12,7 +11,9 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
+  const hasGoogleLogin = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) &&
+    import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -28,25 +29,9 @@ const Login = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-
-      // Matches backend: const { idToken } = req.body;
-      const response = await api.post("/auth/google", {
-        idToken: credentialResponse.credential,
-      });
-
-      const userData = response.data.data;
-
-      localStorage.setItem("token", userData.token);
-
-      // Reload ensures AuthContext loads the authenticated user.
-      window.location.assign("/");
-    } catch (error) {
-      alert(error.response?.data?.message || "Google login failed");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    await loginWithGoogle(credentialResponse.credential);
+    setLoading(false);
   };
 
   return (
@@ -65,13 +50,8 @@ const Login = () => {
               </p>
             </div>
 
-            <div className={loading ? "pointer-events-none opacity-60" : ""}>
-              <GoogleLogin
-                onSuccess={handleGoogleLogin}
-                onError={() => alert("Google login failed")}
-                text="continue_with"
-                width="384"
-              />
+            {hasGoogleLogin && <><div className={loading ? "pointer-events-none opacity-60" : ""}>
+              <GoogleLogin onSuccess={handleGoogleLogin} onError={() => alert("Google login failed")} text="continue_with" width="384" />
             </div>
 
             <div className="relative my-6">
@@ -83,7 +63,7 @@ const Login = () => {
                   Or continue with email
                 </span>
               </div>
-            </div>
+            </div></>}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

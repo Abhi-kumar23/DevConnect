@@ -14,6 +14,8 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectChat from './pages/ProjectChat';
 import VerifyEmail from './pages/verifyEmail'
+import PublicProfile from './pages/PublicProfile'
+import Search from './pages/Search'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -64,7 +66,9 @@ function App() {
       }>
         <Route index element={<Home />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="profile/:userId" element={<PublicProfile />} />
         <Route path="profile/edit" element={<EditProfile />} />
+        <Route path="search" element={<Search />} />
         <Route path="projects" element={<Projects />} />
         <Route path="projects/:projectId" element={<ProjectDetail />} />
         <Route path="projects/:projectId/chat" element={<ProjectChat />} />

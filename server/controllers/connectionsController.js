@@ -4,15 +4,14 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import Profile from "../models/Profile.js";  // Add this import for profile data
+import Profile from "../models/Profile.js";
+
+const hasUserId = (ids, userId) => ids.some((id) => id.toString() === userId.toString());
 
 // Send Connection Request
 const sendRequest = asyncHandler(async (req, res) => {
     const { userId } = req.params;
     
-    console.log('Send request - Target userId:', userId);
-    console.log('Send request - From user:', req.user._id);
-
     if (!userId) {
         throw new ApiError(400, "User ID is required");
     }
@@ -30,18 +29,18 @@ const sendRequest = asyncHandler(async (req, res) => {
     const currentUser = await User.findById(req.user._id);
     
     // Check if already connected (bidirectional check)
-    if (targetUser.connections.includes(req.user._id) || 
-        currentUser.connections.includes(targetUser._id)) {
+    if (hasUserId(targetUser.connections, req.user._id) ||
+        hasUserId(currentUser.connections, targetUser._id)) {
         throw new ApiError(400, "Already connected");
     }
 
     // Check if request already sent
-    if (targetUser.pendingRequests.includes(req.user._id)) {
+    if (hasUserId(targetUser.pendingRequests, req.user._id)) {
         throw new ApiError(400, "Request already sent");
     }
 
     // Check if user already sent a request to you
-    if (currentUser.pendingRequests.includes(targetUser._id)) {
+    if (hasUserId(currentUser.pendingRequests, targetUser._id)) {
         throw new ApiError(400, "You already have a pending request from this user");
     }
 
@@ -73,7 +72,7 @@ const acceptRequest = asyncHandler(async (req, res) => {
 
     const currentUser = await User.findById(req.user._id);
     
-    if (!currentUser.pendingRequests.includes(userId)) {
+    if (!hasUserId(currentUser.pendingRequests, userId)) {
         throw new ApiError(400, "No pending request from this user");
     }
 
@@ -87,8 +86,10 @@ const acceptRequest = asyncHandler(async (req, res) => {
     // Also add to the other user's connections
     const requester = await User.findById(userId);
     if (requester) {
-        requester.connections.push(req.user._id);
-        await requester.save();
+        if (!hasUserId(requester.connections, req.user._id)) {
+            requester.connections.push(req.user._id);
+            await requester.save();
+        }
     }
 
     // Create notification for the requester
@@ -115,7 +116,7 @@ const rejectRequest = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.user._id);
     
-    if (!user.pendingRequests.includes(userId)) {
+    if (!hasUserId(user.pendingRequests, userId)) {
         throw new ApiError(400, "No pending request from this user");
     }
     
@@ -132,7 +133,7 @@ const rejectRequest = asyncHandler(async (req, res) => {
 // Get All Connections
 const getConnections = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
-        .populate("connections", "firstName lastName email avatar headline");
+        .populate("connections", "firstName lastName profilePicture");
     
     // Also get profile info for each connection
     const connectionsWithProfiles = await Promise.all(
@@ -154,7 +155,7 @@ const getConnections = asyncHandler(async (req, res) => {
 // Get Pending Requests
 const getPendingRequests = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
-        .populate("pendingRequests", "firstName lastName email avatar headline");
+        .populate("pendingRequests", "firstName lastName profilePicture");
 
     return res.status(200).json(
         new ApiResponse(200, user.pendingRequests, "Pending requests fetched successfully")
@@ -188,7 +189,7 @@ const getSuggestions = asyncHandler(async (req, res) => {
     const suggestions = await User.find({
         _id: { $nin: uniqueExcludedIds }
     })
-    .select("firstName lastName email avatar")
+    .select("firstName lastName profilePicture")
     .limit(10);
     
     // Get profile information for suggestions
@@ -200,7 +201,7 @@ const getSuggestions = asyncHandler(async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                avatar: user.avatar || user.profilePicture,
+                profilePicture: user.profilePicture,
                 headline: profile?.headline || profile?.title || "Developer",
                 skills: profile?.skills || []
             };

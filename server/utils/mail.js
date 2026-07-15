@@ -32,6 +32,13 @@ const createTransporter = async () => {
   });
 };
 
+const hasEmailConfiguration = () => [
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REFRESH_TOKEN,
+  process.env.GOOGLE_USER_EMAIL,
+].every(Boolean);
+
 const mailGenerator = new Mailgen({
   theme: 'default',
   product: {
@@ -96,6 +103,15 @@ const sendEmail = async ({ email, subject, mailgenContent }) => {
     throw new Error('Missing required email parameters');
   }
 
+  if (!hasEmailConfiguration()) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Email delivery is not configured');
+    }
+    const otp = mailgenContent.body?.action?.button?.text;
+    console.warn(`Email delivery is not configured. Development ${otp ? `OTP for ${email}: ${otp}` : `message for ${email}`} `);
+    return { messageId: 'development-console' };
+  }
+
   try {
     const html = mailGenerator.generate(mailgenContent);
     const text = mailGenerator.generatePlaintext(mailgenContent);
@@ -119,6 +135,10 @@ const sendEmail = async ({ email, subject, mailgenContent }) => {
 
 
 const testEmailConnection = async () => {
+  if (!hasEmailConfiguration()) {
+    console.warn('Email delivery is not configured; verification OTPs will be printed in the development server log.');
+    return false;
+  }
   try {
     const transporter = await createTransporter();
     await transporter.verify();

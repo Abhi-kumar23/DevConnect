@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiGithub, FiGlobe, FiUsers, FiLock, FiUnlock, FiArrowLeft, FiCheck, FiX } from 'react-icons/fi';
@@ -6,6 +6,7 @@ import { projectService } from '../services/projects';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/Common/Loading';
 import toast from 'react-hot-toast';
+import { getAvatarUrl } from '../utils/avatar';
 
 const ProjectDetail = () => {
     const { projectId } = useParams();
@@ -21,8 +22,8 @@ const ProjectDetail = () => {
     const joinMutation = useMutation({
         mutationFn: ({ projectId, message }) => projectService.sendJoinRequest(projectId, message),
         onSuccess: (response) => {
-            queryClient.invalidateQueries(['project', projectId]);
-            if (response.data?.data?.message === 'Joined project successfully') {
+            queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+            if (response.data?.message === 'Joined project successfully') {
                 toast.success('Joined project!');
                 navigate(`/projects/${projectId}/chat`);
             } else {
@@ -37,7 +38,7 @@ const ProjectDetail = () => {
     const acceptMutation = useMutation({
         mutationFn: ({ projectId, userId }) => projectService.acceptRequest(projectId, userId),
         onSuccess: () => {
-            queryClient.invalidateQueries(['project', projectId]);
+            queryClient.invalidateQueries({ queryKey: ['project', projectId] });
             toast.success('Request accepted');
         },
         onError: (error) => {
@@ -48,7 +49,7 @@ const ProjectDetail = () => {
     const rejectMutation = useMutation({
         mutationFn: ({ projectId, userId }) => projectService.rejectRequest(projectId, userId),
         onSuccess: () => {
-            queryClient.invalidateQueries(['project', projectId]);
+            queryClient.invalidateQueries({ queryKey: ['project', projectId] });
             toast.success('Request rejected');
         },
         onError: (error) => {
@@ -103,8 +104,9 @@ const ProjectDetail = () => {
                                     joinMutation.mutate({ projectId: project._id, message: message || '' });
                                 }}
                                 className="btn-primary"
+                                disabled={joinMutation.isPending}
                             >
-                                {project.visibility === 'public' ? 'Join Project' : 'Request to Join'}
+                                {joinMutation.isPending ? 'Submitting…' : project.visibility === 'public' ? 'Join Project' : 'Request to Join'}
                             </button>
                         )}
                         {hasPendingRequest && (
@@ -163,7 +165,7 @@ const ProjectDetail = () => {
                             {project.members?.map((member) => (
                                 <div key={member.user?._id} className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
                                     <img
-                                        src={member.user?.avatar || `https://ui-avatars.com/api/?name=${member.user?.firstName}+${member.user?.lastName}&background=3b82f6&color=fff`}
+                                        src={getAvatarUrl(member.user)}
                                         alt=""
                                         className="w-6 h-6 rounded-full"
                                     />
@@ -183,7 +185,7 @@ const ProjectDetail = () => {
                                     <div key={request.user?._id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                                         <div className="flex items-center space-x-3">
                                             <img
-                                                src={request.user?.avatar || `https://ui-avatars.com/api/?name=${request.user?.firstName}+${request.user?.lastName}&background=gray&color=fff`}
+                                                src={getAvatarUrl(request.user)}
                                                 alt=""
                                                 className="w-10 h-10 rounded-full"
                                             />
@@ -197,12 +199,14 @@ const ProjectDetail = () => {
                                             <button
                                                 onClick={() => acceptMutation.mutate({ projectId: project._id, userId: request.user._id })}
                                                 className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700"
+                                                disabled={acceptMutation.isPending}
                                             >
                                                 <FiCheck size={16} />
                                             </button>
                                             <button
                                                 onClick={() => rejectMutation.mutate({ projectId: project._id, userId: request.user._id })}
                                                 className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700"
+                                                disabled={rejectMutation.isPending}
                                             >
                                                 <FiX size={16} />
                                             </button>

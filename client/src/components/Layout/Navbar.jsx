@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { FiUser, FiLogOut, FiMessageSquare, FiUsers, FiHome, FiSearch, FiBell, FiBriefcase } from 'react-icons/fi'
+import { getAvatarUrl } from '../../utils/avatar'
 
 const Navbar = () => {
   const { user, logout } = useAuth()
@@ -120,7 +121,7 @@ const Navbar = () => {
                 className="flex items-center space-x-2 focus:outline-none"
               >
                 <img
-                  src={user?.avatar || user?.profilePicture || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff`}
+                  src={getAvatarUrl(user)}
                   alt={user?.firstName}
                   className="w-10 h-10 rounded-full object-cover"
                 />

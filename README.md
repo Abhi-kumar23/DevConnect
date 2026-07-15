@@ -1,190 +1,69 @@
-# DevConnect API - Developer Networking Platform
+# DevConnect
 
-[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-4.x-blue.svg)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-6.x-brightgreen.svg)](https://mongodb.com/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.x-black.svg)](https://socket.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+DevConnect is a full-stack social platform for developers. Members can create a developer profile, upload a profile picture and cover photo, publish posts with images, connect with other developers, collaborate on projects, and chat in real time.
 
+## Included features
 
-A modern, production-ready social networking platform built for developers to connect, share knowledge, and collaborate. DevConnect combines the best features of professional networking with real-time communication.
+- Email/OTP and Google authentication with access-token refresh
+- Editable profiles: bio, skills, location, social links, profile image, and cover image
+- Public developer profiles and global search
+- Public or connections-only posts, image posts, likes, comments, and sharing
+- Connection requests, suggestions, accept/reject flows, and notifications
+- Direct Socket.IO messaging and project group chat
+- Public/private project collaboration, join requests, and member management
+- Responsive React interface for desktop and mobile
 
-## 🚀 Features
+## Tech stack
 
-- 🔐 **JWT Authentication** with secure token management
-- 👤 **User Profiles** with skills, experience, and social links
-- 📝 **Posts & Feed** with likes, comments, and replies
-- 🤝 **Connection System** with request/accept functionality
-- 💬 **Real-time Chat** powered by Socket.io
-- 🔔 **Real-time Notifications** for all interactions
-- 🔍 **Advanced Search** by users, skills, and posts
-- 📸 **Image Upload** with Cloudinary integration
-- 🛡️ **Security** with rate limiting, XSS protection, and input sanitization
+- Client: React, Vite, Tailwind CSS, React Query, Socket.IO Client
+- Server: Express, MongoDB/Mongoose, Socket.IO, JWT, Cloudinary, Nodemailer
 
-## 📋 Table of Contents
+## Run locally
 
-- [Tech Stack](#tech-stack)
-- [Installation](#installation)
-- [Environment Variables](#environment-variables)
-- [API Documentation](#api-documentation)
-  - [Authentication](#authentication)
-  - [User Profile](#user-profile)
-  - [Posts](#posts)
-  - [Comments](#comments)
-  - [Connections](#connections)
-  - [Chat](#chat)
-  - [Notifications](#notifications)
-  - [Search](#search)
-- [Error Handling](#error-handling)
-- [WebSocket Events](#websocket-events)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
+Requirements: Node.js 20+, MongoDB (local or Atlas), and Cloudinary credentials for image uploads.
 
-## 🛠️ Tech Stack
+1. Create configuration files from the templates:
 
-| Technology | Purpose |
-|------------|---------|
-| Node.js | Runtime environment |
-| Express.js | Web framework |
-| MongoDB | Database |
-| Mongoose | ODM |
-| JWT | Authentication |
-| Socket.io | Real-time communication |
-| Cloudinary | Image storage |
-| Nodemailer | Email notifications |
-| Helmet | Security headers |
-| Express Validator | Input validation |
+   ```bash
+   cp server/.env.example server/.env
+   cp client/.env.example client/.env
+   ```
 
-# 🚀 DevConnect Backend
+2. Fill in `server/.env`. At minimum configure `MONGO_URI`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, and all three Cloudinary values. Configure the Google/email values only when using Google sign-in or email OTP delivery.
 
-A scalable social networking backend built with **Node.js, Express, MongoDB**, and real-time chat using **Socket.io**.
+3. Start the API in one terminal:
 
----
+   ```bash
+   cd server
+   npm install
+   npm run dev
+   ```
 
-## 🏗️ Tech Stack Overview
+4. Start the client in a second terminal:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                      Client (React)                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    API Gateway (Express)                    │
-│  • Authentication Middleware                                │
-│  • Rate Limiting                                            │
-│  • Request Validation                                       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐    ┌────────────────┐    ┌───────────────┐
-│  Controllers  │    │   Services     │    │   Middleware  │
-│  • User       │    │  • Email       │    │  • Auth       │
-│  • Post       │    │  • Cache       │    │  • Upload     │
-│  • Comment    │    │  • Notification│    │  • Error      │
-│  • Chat       │    └────────────────┘    └───────────────┘
-└───────────────┘
-        │
-        ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    MongoDB Database                         │
-│  • Users | Profiles | Posts | Comments                      │
-│  • Likes | Connections | Chats | Messages                   │
-│  • Notifications                                            │
-└─────────────────────────────────────────────────────────────┘
-```
+   ```bash
+   cd client
+   npm install
+   npm run dev
+   ```
 
-## 📦 Installation
+Open `http://localhost:3000`.
 
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB (local or Atlas)
-- npm or yarn
+## Quality checks
 
-### Steps
-
-# Clone repository
 ```bash
-git clone https://github.com/yourusername/devconnect-backend.git
-cd devconnect-backend
+cd client && npm run lint && npm run build
+cd ../server && npm run check
 ```
 
-# Install dependencies
-```bash
-npm install
-```
+## Image uploads
 
-# Create environment file
-```bash
-cp .env.example .env
-```
+The profile editor uploads avatar and cover images immediately. Post images use the same Cloudinary integration. The backend accepts image files up to 5 MB and safely removes temporary uploads after processing.
 
-# Start development server
-```bash
-npm run dev
-```
+## Environment notes
 
-Step 1: Clone the Repository
-```bash
-git clone https://github.com/yourusername/devconnect-backend.git
-cd devconnect-backend
-```
-
-Step 2: Install Dependencies
-```bash
-npm install
-```
-
-Step 3: Configure Environment Variables
-Create a .env file in the root directory:
-
-```env
-# Server Configuration
-PORT=8000
-NODE_ENV=development
-CLIENT_URL=http://localhost:3000
-
-
-# Database
-MONGO_URI=mongodb://localhost:27017/devconnect
-
-# JWT Secrets
-JWT_SECRET=your_super_secret_jwt_key_change_this
-JWT_EXPIRE=7d
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
-REFRESH_TOKEN_EXPIRE=30d
-
-# Cloudinary (for image upload)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Email (for notifications)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_app_password
-EMAIL_FROM=DevConnect <noreply@devconnect.com>
-```
-
-Step 4: Start MongoDB
-```bash
-# Local MongoDB
-mongod
-
-
-# OR if using Docker
-docker run -d -p 27017:27017 --name mongodb mongo:latest
-```
-
-Step 5: Run the Application
-```bash
-# Development mode
-npm run dev
-
-# Production mode
-npm start
-Your server will start at http://localhost:8000
-```
+- `VITE_API_URL` defaults to `/api` for Vite development and can be set to a deployed API URL.
+- `VITE_SOCKET_URL` should point to the Socket.IO server.
+- `CLIENT_URL` can contain comma-separated allowed browser origins.
+- When email OAuth credentials are omitted in development, verification OTPs are printed in the API terminal. Production requires configured email delivery.
+- Never commit `.env` files; templates are included for safe setup.

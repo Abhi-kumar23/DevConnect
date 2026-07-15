@@ -8,21 +8,18 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadOnCloudinary = async (localFilePath) => {
-    console.log("Uploading to Cloudinary. File path:", localFilePath);
+const uploadOnCloudinary = async (localFilePath, folder = "devconnect") => {
     try {
         if (!localFilePath) return null
-        //upload the file on cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
+            resource_type: "image",
+            folder,
         })
-        console.log("Cloudinary upload successful. URL:", response.url);
         fs.unlinkSync(localFilePath)
         return response;
 
     } catch (error) {
-        console.error("Cloudinary upload error details:", error.message);
-        console.error("Full error:", error);
+        console.error("Cloudinary upload error:", error.message);
         if (fs.existsSync(localFilePath)) {
             fs.unlinkSync(localFilePath)
         }
@@ -47,21 +44,18 @@ const deleteFromCloudinary = async (publicId, resourceType = "image") => {
 };
 
 
-const getPublicIdFromUrl = async (url) => {
+const getPublicIdFromUrl = (url) => {
     try {
         if (!url) return null;
 
         // Example URL:
         // https://res.cloudinary.com/demo/image/upload/v1234567890/folder/file.jpg
 
-        const parts = url.split("/");
-        const fileWithExt = parts.slice(-2).join("/");
-        // folder/file.jpg
-
-        const publicId = fileWithExt.replace(/\.[^/.]+$/, "");
-        // remove extension → folder/file
-
-        return publicId;
+        const uploadMarker = "/upload/";
+        const afterUpload = url.split(uploadMarker)[1];
+        if (!afterUpload) return null;
+        const withoutVersion = afterUpload.replace(/^v\d+\//, "");
+        return withoutVersion.replace(/\.[^/.]+$/, "");
     } catch (error) {
         return null;
     }

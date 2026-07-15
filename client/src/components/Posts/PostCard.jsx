@@ -3,27 +3,34 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { FiHeart, FiMessageCircle, FiShare2 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
+import toast from 'react-hot-toast'
+import { getAvatarUrl } from '../../utils/avatar'
 
 const PostCard = ({ post, onLike, onComment }) => {
   const { user } = useAuth()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
-  const [isLiked, setIsLiked] = useState(
-    post.likes?.some((id) => id.toString() === user?._id?.toString()) || false
-  );
-  const [likesCount, setLikesCount] = useState(post.likes?.length || 0)
+  const isLiked = post.likes?.some((id) => String(id?._id || id) === String(user?._id)) || false
+  const likesCount = post.likes?.length || 0
 
   const handleLike = () => {
-    onLike()
-    setIsLiked(!isLiked)
-    setLikesCount(isLiked ? likesCount - 1 : likesCount + 1)
+    onLike?.()
   }
 
   const handleComment = (e) => {
     e.preventDefault()
     if (!commentText.trim()) return
-    onComment(commentText)
+    onComment?.(commentText)
     setCommentText('')
+  }
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/profile/${post.user?._id}`)
+      toast.success('Profile link copied')
+    } catch {
+      toast.error('Unable to copy the link')
+    }
   }
 
   return (
@@ -32,7 +39,7 @@ const PostCard = ({ post, onLike, onComment }) => {
       <div className="p-4 flex items-center space-x-3">
         <Link to={`/profile/${post.user?._id}`}>
           <img
-            src={post.user?.profilePicture || `https://ui-avatars.com/api/?name=${post.user?.firstName}+${post.user?.lastName}&background=3b82f6&color=fff`}
+            src={getAvatarUrl(post.user)}
             alt={post.user?.firstName}
             className="w-10 h-10 rounded-full object-cover"
           />
@@ -73,7 +80,7 @@ const PostCard = ({ post, onLike, onComment }) => {
           <span className="text-sm">{post.comments?.length || 0}</span>
         </button>
 
-        <button className="flex items-center space-x-2 py-2 px-4 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+        <button onClick={handleShare} className="flex items-center space-x-2 py-2 px-4 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors">
           <FiShare2 size={20} />
           <span className="text-sm">Share</span>
         </button>
@@ -96,7 +103,7 @@ const PostCard = ({ post, onLike, onComment }) => {
           {post.comments?.map((comment) => (
             <div key={comment._id} className="flex space-x-3">
               <img
-                src={comment.user?.profilePicture || `https://ui-avatars.com/api/?name=${comment.user?.firstName}+${comment.user?.lastName}&background=gray&color=fff`}
+                src={getAvatarUrl(comment.user)}
                 alt=""
                 className="w-8 h-8 rounded-full"
               />

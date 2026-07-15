@@ -1,27 +1,9 @@
-cat > server/.gitignore << 'EOF'
-# Dependencies
 node_modules/
-package-lock.json
-
-# Environment variables
 .env
-config/.env
-
-# Logs
-logs/
-*.log
-
-# OS files
-.DS_Store
-
-# IDE
-.vscode/
-.idea/
-
-# Temp files
+.env.*
+!.env.example
 public/temp/
-public/images/
-
-# Uploads
 uploads/
-EOF
+logs/
+.DS_Store
+*.log

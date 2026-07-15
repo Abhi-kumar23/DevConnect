@@ -49,11 +49,9 @@ const chatSchema = new mongoose.Schema({
 // chatSchema.index({ lastMessageAt: -1 });
 // chatSchema.index({ participants: 1, updatedAt: -1 });
 
-// Ensure unique chat for two participants (not group)
-chatSchema.index({ participants: 1 }, { 
-    unique: true,
-    partialFilterExpression: { isGroupChat: false }
-});
+// Do not add a unique index on `participants`: MongoDB unique multikey indexes
+// would wrongly prevent a developer from having more than one direct chat.
+chatSchema.index({ participants: 1, isGroupChat: 1, updatedAt: -1 });
 
 // Virtual for getting other participant
 chatSchema.virtual('otherParticipant').get(function() {

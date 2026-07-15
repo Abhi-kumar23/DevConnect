@@ -5,7 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const createPost = asyncHandler(async (req, res) => {
     const content = req.body?.content?.trim();
@@ -20,21 +20,24 @@ const createPost = asyncHandler(async (req, res) => {
     }
 
     let imageUrl = null;
+    let imagePublicId = null;
 
     if (req.file) {
-        const image = await uploadOnCloudinary(req.file.path);
+        const image = await uploadOnCloudinary(req.file.path, "devconnect/posts");
 
-        if (!image?.url) {
+        if (!image?.secure_url) {
             throw new ApiError(500, "Image upload failed");
         }
 
-        imageUrl = image.url;
+        imageUrl = image.secure_url;
+        imagePublicId = image.public_id;
     }
 
     const post = await Post.create({
         user: req.user._id,
         content: content || "",
         image: imageUrl,
+        imagePublicId,
         visibility,
     });
 
@@ -136,7 +139,7 @@ const toggleLike = asyncHandler(async (req, res) => {
         throw new ApiError(403, "You do not have access to this post");
     }
 
-    const liked = post.likes.includes(req.user._id);
+    const liked = post.likes.some((id) => id.toString() === req.user._id.toString());
 
     if (liked) {
         post.likes = post.likes.filter(id => id.toString() !== req.user._id.toString());
@@ -148,8 +151,10 @@ const toggleLike = asyncHandler(async (req, res) => {
                 recipient: post.user,
                 sender: req.user._id,
                 type: "like",
+                title: "New like",
                 message: `${req.user.firstName} liked your post`,
-                post: post._id
+                data: { postId: post._id },
+                actionUrl: "/",
             });
         }
     }
@@ -166,21 +171,20 @@ const toggleLike = asyncHandler(async (req, res) => {
 
 const addComment = asyncHandler(async (req, res) => {
     const { postId } = req.params;
-    const { text } = req.body;
+    const text = String(req.body?.text || "").trim();
 
     if (!text) {
         throw new ApiError(400, "Comment text is required");
     }
 
-    const currentUser = await User.findById(req.user._id).select("connections");
-
-    if (!canAccessPost(post, req.user._id, currentUser.connections || [])) {
-        throw new ApiError(403, "You do not have access to this post");
-    }
-
     const post = await Post.findById(postId);
     if (!post) {
         throw new ApiError(404, "Post not found");
+    }
+
+    const currentUser = await User.findById(req.user._id).select("connections");
+    if (!canAccessPost(post, req.user._id, currentUser?.connections || [])) {
+        throw new ApiError(403, "You do not have access to this post");
     }
 
     const comment = {
@@ -196,12 +200,14 @@ const addComment = asyncHandler(async (req, res) => {
             recipient: post.user,
             sender: req.user._id,
             type: "comment",
+            title: "New comment",
             message: `${req.user.firstName} commented on your post`,
-            post: post._id
+            data: { postId: post._id },
+            actionUrl: "/",
         });
     }
 
-    await post.populate("comments.user", "firstName lastName avatar");
+    await post.populate("comments.user", "firstName lastName profilePicture");
 
     return res.status(200).json(
         new ApiResponse(200, post.comments, "Comment added successfully")
@@ -220,7 +226,9 @@ const deletePost = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Not authorized to delete this post");
     }
 
+    const postWithImageId = await Post.findById(postId).select("+imagePublicId");
     await post.deleteOne();
+    if (postWithImageId?.imagePublicId) await deleteFromCloudinary(postWithImageId.imagePublicId);
 
     return res.status(200).json(
         new ApiResponse(200, null, "Post deleted successfully")
