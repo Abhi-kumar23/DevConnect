@@ -122,23 +122,221 @@ flowchart TB
 
 ## Tech stack
 
-- Client: React, Vite, Tailwind CSS, React Query, Socket.IO Client
-- Server: Express, MongoDB/Mongoose, Socket.IO, JWT, Cloudinary, Nodemailer
+| Layer | Technologies |
+|-------|----------------|
+| Frontend | React 19, Vite, React Router, TanStack React Query, Tailwind CSS, Axios, Socket.IO Client |
+| Backend | Node.js 20+, Express 5, Mongoose, Socket.IO, JWT, express-validator, Multer |
+| Data | MongoDB (primary database), Redis (optional, distributed rate limiting) |
+| Media | Cloudinary |
+| Email / OAuth | Nodemailer, Mailgen, Google Auth Library / Google APIs |
+| Ops | Docker, Docker Compose, nginx, GitHub Actions (CI/CD), GHCR |
 
-## Run locally
+---
 
-Requirements: Node.js 20+, MongoDB (local or Atlas), and Cloudinary credentials for image uploads.
+## Repository layout
 
-1. Create configuration files from the templates:
+```
+devconnect/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── pages/          # Route-level screens (Home, Chat, Projects, …)
+│   │   ├── components/     # Layout, posts, notifications, shared UI
+│   │   ├── context/        # AuthContext (user session)
+│   │   └── services/       # API wrappers (api.js, posts, chat, …)
+│   ├── Dockerfile          # Multi-stage: Vite build → nginx
+│   └── nginx.conf          # SPA + API/WebSocket proxy (used in Docker)
+├── server/
+│   ├── config/             # DB, Redis, env, indexes
+│   ├── controllers/        # Route handlers
+│   ├── middleware/         # JWT, uploads, validation
+│   ├── models/             # Mongoose schemas
+│   ├── routes/             # Express routers
+│   ├── sockets/            # Socket.IO auth & events
+│   ├── utils/              # Mail, rate limit helpers, errors
+│   └── server.js           # App entry point
+├── docker-compose.yml      # mongodb, redis, server, web (nginx)
+├── docker-compose.prod.yml # Pull pre-built GHCR images (CD)
+└── .github/workflows/      # ci.yml, cd.yml
+```
 
-   ```bash
-   cp server/.env.example server/.env
-   cp client/.env.example client/.env
-   ```
+---
 
-2. Fill in `server/.env`. At minimum configure `MONGO_URI`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, and all three Cloudinary values. Configure the Google/email values only when using Google sign-in or email OTP delivery.
+## How the app works
 
-3. Start the API in one terminal:
+### Authentication flow
+
+1. User registers → OTP sent (or printed in dev) → email verified → account active.
+2. Login returns access + refresh tokens; the client stores the access token and sends `Authorization: Bearer <token>` on API calls (cookies also supported on the server).
+3. On **401**, the client tries `POST /api/auth/refresh-token`, then retries the request or redirects to login.
+
+### Authorization
+
+Most `/api/*` routes (except auth and health) use `verifyJWT` middleware, which loads the user from MongoDB and attaches `req.user`.
+
+### Posts & images
+
+Uploads hit Multer temporarily; the server uploads to **Cloudinary**, saves URLs on the user/post documents, and removes temp files.
+
+### Rate limiting
+
+Global API limiter plus stricter limits on auth and OTP routes. With **`REDIS_URL`**, counters are shared across API instances; without it, limits are in-memory (fine for single-process dev).
+
+---
+
+## Data model
+
+MongoDB collections (Mongoose models in `server/models/`):
+
+| Model | Purpose |
+|-------|---------|
+| `User` | Credentials, refresh token, core account fields |
+| `Profile` | Public-facing profile data linked to user |
+| `Post` | Feed posts, visibility, likes array, image URL |
+| `Comment` | Threaded comments on posts |
+| `Like` | Like relationships (posts/comments where used) |
+| `Chat` | 1:1 conversation metadata and participants |
+| `Message` | Chat messages |
+| `Project` | Projects, members, visibility, join workflow |
+| `ProjectGroupChat` | Project-scoped group messages |
+| `Notification` | In-app notifications |
+| `OTP` | Email verification codes (TTL index for expiry) |
+
+Indexes for feeds, search, chats, and notifications are created at startup via `config/dbIndexes.js`.
+
+---
+
+## API overview
+
+Base URL: **`/api`**. Protected routes require a valid JWT unless noted.
+
+| Prefix | Responsibility |
+|--------|----------------|
+| `/api/auth` | Register, OTP, login, Google login, refresh, logout, current user |
+| `/api/profiles` | CRUD-style profile ops, avatar/cover upload, search users |
+| `/api/posts` | Create post, feed, user posts, like, comment, delete |
+| `/api/projects` | List/create projects, join flow, project chat messages |
+| `/api/connections` | Requests, accept/reject, list connections, suggestions |
+| `/api/chats` | Send message, list messages, mark read |
+| `/api/search` | Global search |
+| `/api/notifications` | List, mark read, clear, unread count |
+
+**Health:** `GET /health` — liveness check (not under `/api`).
+
+---
+
+## Real-time (Socket.IO)
+
+Server: `server/sockets/chatSocket.js`. Client connects with `auth: { token: accessToken }`.
+
+| Event (client → server) | Purpose |
+|-------------------------|---------|
+| `joinChat` | Join room for a 1:1 chat (validated participant) |
+| `joinProjectChat` | Join room for project group chat (validated member) |
+| `typing` / `stopTyping` | Typing indicators in a chat room |
+
+| Event (server → client) | Purpose |
+|-------------------------|---------|
+| `onlineUsers` | List of user IDs currently connected |
+
+Message **content** is persisted via REST (`/api/chats`, project chat routes); Socket.IO handles presence and typing.
+
+---
+
+## Prerequisites
+
+- **Node.js 20+** and npm (for local dev)
+- **MongoDB** (local, Docker, or Atlas)
+- **Cloudinary** account (required for avatars, covers, post images)
+- **Redis** (optional; recommended for production rate limits)
+- **Docker & Docker Compose** (optional; for containerized stack)
+
+---
+
+## Quick start
+
+**Fastest path with Docker (app + database + Redis + nginx):**
+
+```bash
+git clone https://github.com/Abhi-kumar23/DevConnect.git
+cd DevConnect
+cp server/.env.example server/.env
+# Edit server/.env: JWT secrets, Cloudinary keys, etc.
+
+docker compose up -d --build
+```
+
+Open **http://localhost**.
+
+**Classic local dev (hot reload on frontend):**
+
+```bash
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+# Fill server/.env (required) and client/.env as needed
+
+docker compose up -d mongodb redis   # optional but recommended
+
+cd server && npm install && npm run dev
+cd client && npm install && npm run dev
+```
+
+Open **http://localhost:3000**.
+
+---
+
+## Environment variables
+
+### Server (`server/.env`)
+
+Copy from `server/.env.example`.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PORT` | No | API port (default `8000`) |
+| `NODE_ENV` | No | `development` / `production` |
+| `CLIENT_URL` | Yes* | Comma-separated browser origins for CORS |
+| `MONGO_URI` | Yes | MongoDB connection string |
+| `REDIS_URL` | No | Redis URL; omit for in-memory rate limits |
+| `ACCESS_TOKEN_SECRET` | Yes | Long random string for JWT access tokens |
+| `REFRESH_TOKEN_SECRET` | Yes | Long random string for refresh tokens |
+| `CLOUDINARY_*` | Yes | Cloud name, API key, secret for uploads |
+| `GOOGLE_CLIENT_ID` | No | Google sign-in (server verification) |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth |
+| `GOOGLE_REFRESH_TOKEN` | No | Gmail API refresh token for sending mail |
+| `GOOGLE_USER_EMAIL` | No | Sender address for OTP emails |
+
+\*Required in production; defaults exist for local dev.
+
+### Client (`client/.env`)
+
+Copy from `client/.env.example`.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_API_URL` | No | Defaults to `/api` in many setups; use full URL if API is on another host |
+| `VITE_SOCKET_URL` | No | If unset, client uses `window.location.origin` (works with Vite proxy and nginx) |
+| `VITE_GOOGLE_CLIENT_ID` | No | Enables Google button on login |
+
+**Never commit `.env` files.** Only `.env.example` templates are in the repo.
+
+---
+
+## Run with Docker
+
+### Full stack
+
+Compose services: **mongodb**, **redis**, **server**, **web** (nginx).
+
+- Compose sets `MONGO_URI`, `REDIS_URL`, and `CLIENT_URL` for containers; you still provide secrets in `server/.env`.
+- Optional Google client ID for the **built** frontend: set `VITE_GOOGLE_CLIENT_ID` in a root `.env` before `docker compose up`.
+
+```bash
+docker compose up -d --build
+```
+
+### Infrastructure only
+
+Run MongoDB and Redis in Docker while developing on the host:
 
 ```bash
 docker compose up -d mongodb redis
@@ -199,47 +397,6 @@ cd client && npm ci && npm run lint && npm run build
 cd ../server && npm ci && npm run check
 ```
 
-## CI/CD (GitHub Actions)
-
-### CI (`.github/workflows/ci.yml`)
-
-Runs on pushes and pull requests to `main`:
-
-- Client: `npm ci`, ESLint, production build
-- Server: `npm ci`, `node --check` on `server.js`
-- Docker: `docker compose build web server` (uses `server/.env.example` as a stub env file)
-
-### CD (`.github/workflows/cd.yml`)
-
-Runs on pushes to `main` and manual **workflow dispatch**:
-
-1. Builds and pushes `devconnect-server` and `devconnect-web` images to **GitHub Container Registry** (`ghcr.io/<owner>/...`), tagged with `latest`, `main`, and the commit SHA.
-2. **Deploy** job (GitHub **production** environment): SSH to your VPS, pulls images, and runs Compose with `docker-compose.prod.yml`.
-
-#### Repository secrets (Settings → Secrets and variables → Actions)
-
-| Secret | Used for |
-|--------|----------|
-| `VITE_GOOGLE_CLIENT_ID` | Optional; baked into the nginx/client image at build time |
-| `DEPLOY_HOST` | VPS hostname or IP |
-| `DEPLOY_USER` | SSH user |
-| `DEPLOY_SSH_KEY` | Private key (PEM) for SSH |
-| `DEPLOY_PATH` | Directory on the server with `docker-compose.yml`, `docker-compose.prod.yml`, and `server/.env` |
-| `GHCR_DEPLOY_TOKEN` | PAT or fine-grained token with `read:packages` so the server can `docker pull` from GHCR |
-| `DEPLOY_PORT` | Optional SSH port (defaults to 22 in the workflow if omitted) |
-
-On the VPS, clone the repo (or copy compose files), create `server/.env` with production values, then make GHCR packages **public** or grant the deploy token access. First deploy:
-
-```bash
-export IMAGE_TAG=<commit-sha-or-latest>
-export SERVER_IMAGE=ghcr.io/<owner>/devconnect-server
-export WEB_IMAGE=ghcr.io/<owner>/devconnect-web
-docker compose -f docker-compose.yml -f docker-compose.prod.yml pull web server
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build web server
-```
-
-Until deploy secrets are configured, the **build-and-push** job still publishes images. To run SSH deploy, set repository variable **`ENABLE_DEPLOY`** to `true` and add the deploy secrets below.
-
 ---
 
 ## CI/CD
@@ -273,8 +430,33 @@ On push to **`main`** or manual **workflow_dispatch**:
 
 ## Production deployment notes
 
-- `VITE_API_URL` defaults to `/api` for Vite development and can be set to a deployed API URL.
-- `VITE_SOCKET_URL` should point to the Socket.IO server.
-- `CLIENT_URL` can contain comma-separated allowed browser origins.
-- When email OAuth credentials are omitted in development, verification OTPs are printed in the API terminal. Production requires configured email delivery.
-- Never commit `.env` files; templates are included for safe setup.
+- Use strong, unique **JWT secrets** and HTTPS in front of nginx.
+- Set **`CLIENT_URL`** to your real frontend origin(s).
+- Configure **email OAuth** for OTP in production (do not rely on console OTP).
+- Make GHCR packages public or grant the deploy token **`read:packages`**.
+- MongoDB and Redis: managed services or persistent volumes if self-hosted.
+- Socket.IO behind nginx requires WebSocket upgrade headers (already in `client/nginx.conf`).
+
+---
+
+## Troubleshooting
+
+| Issue | Things to check |
+|-------|------------------|
+| CORS errors | `CLIENT_URL` includes exact browser origin (scheme + host + port) |
+| 401 on all requests | Token expired; refresh flow; clock skew; correct `ACCESS_TOKEN_SECRET` |
+| Upload fails | Cloudinary env vars; file under 5 MB |
+| Redis not used | `REDIS_URL` set and Redis reachable; server log should say “Redis connected” |
+| Socket won’t connect | `VITE_SOCKET_URL` or same-origin proxy; JWT passed in `auth.token` |
+| Docker compose build fails | Create `server/.env` from example (compose references `env_file`) |
+| OTP never arrives | Configure Google email env vars or read OTP from server logs in dev |
+
+---
+
+## License
+
+ISC (see `server/package.json`). Adjust this section if you add a root `LICENSE` file.
+
+---
+
+**Questions or contributions:** open an issue or PR on [GitHub](https://github.com/Abhi-kumar23/DevConnect).
