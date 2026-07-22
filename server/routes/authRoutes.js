@@ -13,17 +13,19 @@ import {
     getCurrentUser
 } from '../controllers/authController.js';
 
-import rateLimit from 'express-rate-limit';
+import { createRateLimiter } from '../utils/rateLimit.js';
 
 const router = express.Router();
 
-const otpLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+const otpLimiter = createRateLimiter({
+    prefix: 'rl:otp:',
+    windowMs: 15 * 60 * 1000,
     max: 5,
     message: 'Too many OTP requests. Please try again later.'
 });
 
-const verifyLimiter = rateLimit({
+const verifyLimiter = createRateLimiter({
+    prefix: 'rl:verify:',
     windowMs: 15 * 60 * 1000,
     max: 10,
     message: 'Too many verification attempts. Please try again later.'

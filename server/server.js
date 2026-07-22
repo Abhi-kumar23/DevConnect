@@ -3,7 +3,8 @@ import "./config/env.js";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import rateLimit from "express-rate-limit";
+import connectRedis from "./config/redis.js";
+import { createRateLimiter } from "./utils/rateLimit.js";
 import http from "http";
 import { Server } from "socket.io";
 import cookieParser from "cookie-parser";
@@ -41,17 +42,19 @@ app.use(cors({
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, 
+const apiLimiter = createRateLimiter({
+  prefix: "rl:api:",
+  windowMs: 60 * 1000,
   max: 100,
   message: "Too many requests, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,                   // 5 login attempts per 15 minutes
+const authLimiter = createRateLimiter({
+  prefix: "rl:auth:",
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   skipSuccessfulRequests: true,
   message: "Too many login attempts, please try again later.",
 });
@@ -104,6 +107,7 @@ app.set("io", io);
 initSocket(io);
 
 connectDB().then(async () => {
+  await connectRedis();
   await testEmailConnection();
   createIndexes();
   const PORT = process.env.PORT || 8000;

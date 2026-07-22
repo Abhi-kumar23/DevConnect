@@ -46,7 +46,7 @@ const ProjectChat = () => {
 
     // Socket.io setup
     useEffect(() => {
-        const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000', {
+        const newSocket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
             auth: { token: localStorage.getItem('token') },
         });
         socketRef.current = newSocket;
