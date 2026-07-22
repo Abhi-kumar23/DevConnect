@@ -36,7 +36,7 @@ const Chat = () => {
 
   useEffect(() => {
     if (!user?._id) return undefined
-    const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000', { auth: { token: localStorage.getItem('token') } })
+    const socket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, { auth: { token: localStorage.getItem('token') } })
     socketRef.current = socket
     socket.on('receiveMessage', (message) => {
       const chatId = String(message.chat?._id || message.chat)

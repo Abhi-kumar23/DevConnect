@@ -1,0 +1,9 @@
+# Use with pre-built images from GitHub Container Registry (CD pipeline).
+# Example: IMAGE_TAG=abc123 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+
+services:
+  server:
+    image: ${SERVER_IMAGE:-ghcr.io/abhi-kumar23/devconnect-server}:${IMAGE_TAG:-latest}
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/abhi-kumar23/devconnect-web}:${IMAGE_TAG:-latest}
