@@ -27,7 +27,7 @@ const app = express();
 app.use(cookieParser());
 
 // app.use(cors());
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://127.0.0.1:3000")
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3001")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);

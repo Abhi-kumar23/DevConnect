@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import Profile from "../models/Profile.js";
-import OTP from "../models/OTP.js";
+import OTP from "../models/Otp.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";

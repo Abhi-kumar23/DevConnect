@@ -19,11 +19,10 @@ const queryClient = new QueryClient({
 })
 
 // Get Client ID from environment variable
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 // Only wrap with GoogleOAuthProvider if client ID exists
 const AppWithProviders = () => {
-  if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com') {
     return (
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
@@ -36,7 +35,6 @@ const AppWithProviders = () => {
         </QueryClientProvider>
       </GoogleOAuthProvider>
     )
-  }
   
   // Fallback without Google login
   return (
