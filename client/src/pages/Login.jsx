@@ -1,137 +1,101 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { GoogleLogin } from "@react-oauth/google";
-import { FiMail, FiLock, FiArrowRight } from "react-icons/fi";
-
-import { useAuth } from "../context/AuthContext";
-import PublicNavbar from "../components/Layout/PublicNavbar";
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
+import { FiArrowRight, FiLock, FiMail } from 'react-icons/fi'
+import { useAuth } from '../context/AuthContext'
+import PublicNavbar from '../components/Layout/PublicNavbar'
+import Logo from '../components/Common/Logo'
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const { login, loginWithGoogle } = useAuth();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { login, loginWithGoogle } = useAuth()
   const hasGoogleLogin = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) &&
-    import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com';
+    import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com'
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    setLoading(true);
-    await login(email, password);
-    setLoading(false);
-  };
+    event.preventDefault()
+    setLoading(true)
+    await login(email, password)
+    setLoading(false)
+  }
 
   const handleGoogleLogin = async (credentialResponse) => {
     if (!credentialResponse.credential) {
-      alert("Google did not return an ID token");
-      return;
+      return
     }
-
-    setLoading(true);
-    await loginWithGoogle(credentialResponse.credential);
-    setLoading(false);
-  };
+    setLoading(true)
+    await loginWithGoogle(credentialResponse.credential)
+    setLoading(false)
+  }
 
   return (
-    <>
+    <div className="min-h-screen">
       <PublicNavbar />
+      <div className="grid lg:grid-cols-2 min-h-[calc(100vh-4rem)]">
+        <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-teal-950 to-indigo-950 text-white">
+          {/* <Logo to="/login" className="[&_span:last-child]:text-white" /> */}
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-teal-300 font-semibold">Developer network</p>
+            <h1 className="mt-4 text-4xl xl:text-5xl font-extrabold leading-tight">
+              Share work. Find collaborators. Grow your craft.
+            </h1>
+            <p className="mt-4 text-lg text-slate-300 max-w-md">
+              Posts, connections, project teams, and real-time chat — built for people who ship.
+            </p>
+          </div>
+          <p className="text-sm text-slate-400">Join developers already building in public.</p>
+        </div>
 
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-gray-100 flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Welcome Back
-              </h2>
-              <p className="mt-2 text-gray-600">
-                Sign in to your account
-              </p>
-            </div>
+        <div className="flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md">
+            <div className="lg:hidden mb-8"><Logo /></div>
+            <div className="card">
+              <h2 className="text-2xl font-extrabold text-slate-900">Welcome back</h2>
+              <p className="mt-1 text-slate-500">Sign in to continue to DevConnect</p>
 
-            {hasGoogleLogin && <><div className={loading ? "pointer-events-none opacity-60" : ""}>
-              <GoogleLogin onSuccess={handleGoogleLogin} onError={() => alert("Google login failed")} text="continue_with" width="384" />
-            </div>
+              {hasGoogleLogin && (
+                <>
+                  <div className={`mt-6 ${loading ? 'pointer-events-none opacity-60' : ''}`}>
+                    <GoogleLogin onSuccess={handleGoogleLogin} onError={() => {}} text="continue_with" width="auto" />
+                  </div>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+                    <div className="relative flex justify-center text-sm"><span className="px-3 bg-white text-slate-400">or email</span></div>
+                  </div>
+                </>
+              )}
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Or continue with email
-                </span>
-              </div>
-            </div></>}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <form onSubmit={handleSubmit} className={`space-y-4 ${!hasGoogleLogin ? 'mt-6' : ''}`}>
+                <label className="block text-sm font-semibold text-slate-700">
                   Email
+                  <div className="relative mt-1.5">
+                    <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="input-primary pl-10" placeholder="you@example.com" autoComplete="email" required />
+                  </div>
                 </label>
-
-                <div className="relative">
-                  <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700">
                   Password
+                  <div className="relative mt-1.5">
+                    <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="input-primary pl-10" placeholder="••••••••" autoComplete="current-password" required />
+                  </div>
                 </label>
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+                  {loading ? 'Signing in…' : <>Sign in <FiArrowRight /></>}
+                </button>
+              </form>
 
-                <div className="relative">
-                  <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    required
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                <span>{loading ? "Logging in..." : "Sign In"}</span>
-                {!loading && <FiArrowRight />}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Don&apos;t have an account?{" "}
-                <Link
-                  to="/register"
-                  className="text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  Sign up
-                </Link>
+              <p className="mt-6 text-center text-sm text-slate-600">
+                New here? <Link to="/register" className="text-primary-700 font-semibold hover:underline">Create an account</Link>
               </p>
             </div>
           </div>
         </div>
       </div>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default Login;
+export default Login
