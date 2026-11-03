@@ -49,7 +49,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push web (nginx)
+      - name: Build and push web (node)
         uses: docker/build-push-action@v6
         with:
           context: ./client
@@ -59,8 +59,10 @@ jobs:
             ${{ env.WEB_IMAGE }}:${{ github.sha }}
             ${{ env.WEB_IMAGE }}:main
           build-args: |
-            VITE_API_URL=/api
-            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+            build-args: |
+              VITE_API_URL=${{ vars.VITE_API_URL }}
+              VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
+              VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

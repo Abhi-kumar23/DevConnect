@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import Loading from '../components/Common/Loading';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
+import api from '../services/api';
 
 const EMPTY_MESSAGES = [];
 
@@ -46,12 +47,38 @@ const ProjectChat = () => {
 
     // Socket.io setup
     useEffect(() => {
+        if (!user?._id || !projectId) return;
+
         const newSocket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
-            auth: { token: localStorage.getItem('token') },
+            withCredentials: true,
         });
+
+        let refreshingSocket = false;
+
+        newSocket.on('connect_error', async (error) => {
+            if (error.message !== 'Unauthorized' || refreshingSocket) return;
+
+            refreshingSocket = true;
+
+            try {
+                await api.post('/auth/refresh-token');
+                newSocket.connect();
+            } catch {
+                newSocket.disconnect();
+
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.assign('/login');
+                }
+            } finally {
+                refreshingSocket = false;
+            }
+        });
+
         socketRef.current = newSocket;
 
-        newSocket.emit('joinProjectChat', projectId);
+        newSocket.on('connect', () => {
+            newSocket.emit('joinProjectChat', projectId);
+        });
 
         newSocket.on('projectMessage', (message) => {
             setMessages(prev => [...prev, message]);
@@ -61,7 +88,7 @@ const ProjectChat = () => {
             newSocket.disconnect();
             socketRef.current = null;
         };
-    }, [projectId]);
+    }, [projectId, user?._id]);
 
     useEffect(() => {
         setMessages(chatMessages);
@@ -120,8 +147,8 @@ const ProjectChat = () => {
                             className={`flex ${msg.sender?._id === user?._id ? 'justify-end' : 'justify-start'}`}
                         >
                             <div className={`max-w-[85%] md:max-w-[70%] rounded-lg p-2 md:p-3 ${msg.sender?._id === user?._id
-                                    ? 'bg-primary-600 text-white'
-                                    : 'bg-white shadow-sm border'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-white shadow-sm border'
                                 }`}>
                                 {msg.sender?._id !== user?._id && (
                                     <p className="text-xs font-semibold mb-1 text-gray-700">
@@ -130,8 +157,8 @@ const ProjectChat = () => {
                                 )}
                                 <p className="text-sm md:text-base break-words">{msg.content}</p>
                                 <p className={`text-xs mt-1 ${msg.sender?._id === user?._id
-                                        ? 'text-primary-100'
-                                        : 'text-gray-400'
+                                    ? 'text-primary-100'
+                                    : 'text-gray-400'
                                     }`}>
                                     {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>

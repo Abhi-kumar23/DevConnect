@@ -1,6 +1,6 @@
 import express from 'express';
-import { verifyJWT } from '../middleware/authMiddleware.js';
-import { upload } from '../middleware/uploadMiddleware.js';
+import { verifyJWT } from '../middlewares/authMiddleware.js';
+import { upload } from '../middlewares/uploadMiddleware.js';
 import {
     createPost,
     getFeed,

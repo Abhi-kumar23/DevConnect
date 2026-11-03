@@ -8,51 +8,55 @@ const api = axios.create({
   },
 })
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
-
 let refreshPromise = null
 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    const canRefresh = error.response?.status === 401 &&
-      !originalRequest?._retry &&
-      !originalRequest?.url?.includes('/auth/refresh-token')
+    const url = originalRequest?.url || ''
 
-    if (canRefresh) {
-      originalRequest._retry = true
-      try {
-        refreshPromise ||= api.post('/auth/refresh-token')
-        const refreshResponse = await refreshPromise
-        const token = refreshResponse.data?.data?.accessToken
-        if (!token) throw new Error('No access token returned')
-        localStorage.setItem('token', token)
-        originalRequest.headers.Authorization = `Bearer ${token}`
-        return api(originalRequest)
-      } catch {
-        localStorage.removeItem('token')
-        if (!window.location.pathname.includes('/login')) window.location.assign('/login')
-      } finally {
-        refreshPromise = null
-      }
+    const isAuthEndpoint = [
+      '/auth/login',
+      '/auth/google',
+      '/auth/verify-otp',
+      '/auth/register',
+      '/auth/resend-otp',
+      '/auth/refresh-token',
+      '/auth/logout',
+    ].some((endpoint) => url.includes(endpoint))
+
+    if (
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      isAuthEndpoint
+    ) {
+      return Promise.reject(error)
     }
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
+
+    originalRequest._retry = true
+
+    try {
+      if (!refreshPromise) {
+        refreshPromise = api
+          .post('/auth/refresh-token')
+          .finally(() => {
+            refreshPromise = null
+          })
+      }
+
+      await refreshPromise
+
+      // The server sets the new access token as an HttpOnly cookie.
+      return api(originalRequest)
+    } catch {
       if (!window.location.pathname.includes('/login')) {
         window.location.assign('/login')
       }
+
+      return Promise.reject(error)
     }
-    return Promise.reject(error)
   }
 )
 

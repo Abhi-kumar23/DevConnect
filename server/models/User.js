@@ -144,6 +144,18 @@ const userSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+// Ensure one Google identity can belong to only one user
+userSchema.index(
+  { googleId: 1 },
+  {
+    unique: true,
+    name: "googleId_unique_non_null",
+    partialFilterExpression: {
+      googleId: { $type: "string" },
+    },
+  }
+);
+
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
     return `${this.firstName} ${this.lastName}`;

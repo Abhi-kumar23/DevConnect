@@ -19,7 +19,8 @@ const MAX_OTP_ATTEMPTS = 5;
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/",
 };
 
 const generateAccessToken = (id) =>
@@ -229,7 +230,6 @@ const verifyOTP = asyncHandler(async (req, res) => {
         200,
         {
           user,
-          token: accessToken,
           isEmailVerified: true,
         },
         "Email verified successfully"
@@ -279,7 +279,6 @@ const loginUser = asyncHandler(async (req, res) => {
         200,
         {
           user: loggedInUser,
-          token: accessToken,
         },
         "Login successful"
       )
@@ -294,6 +293,7 @@ const googleLogin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Google ID token is required");
   }
 
+  // 1. Verify Google's ID token
   const ticket = await client.verifyIdToken({
     idToken,
     audience: process.env.GOOGLE_CLIENT_ID,
@@ -301,47 +301,154 @@ const googleLogin = asyncHandler(async (req, res) => {
 
   const payload = ticket.getPayload();
 
-  if (!payload?.email || !payload.email_verified) {
-    throw new ApiError(401, "Google did not verify this email address");
+  // Require a stable Google identity and verified email
+  if (
+    !payload?.sub ||
+    !payload?.email ||
+    payload.email_verified !== true
+  ) {
+    throw new ApiError(
+      401,
+      "Google did not provide a verified identity and email address"
+    );
   }
 
   const email = payload.email.toLowerCase().trim();
+  const googleId = payload.sub;
+
+  let user = null;
   let isNewUser = false;
-  let user = await User.findOne({ email });
 
+  // 2. First, find an account by Google's unique identity
+  user = await User.findOne({ googleId }).select("+googleId");
+
+  // 3. If Google identity doesn't exist, check the email
   if (!user) {
-    isNewUser = true;
+    const existingUser = await User.findOne({ email }).select("+googleId");
 
-    const nameParts = (payload.name || "User User").trim().split(/\s+/);
-    const firstName = nameParts[0] || "User";
-    const lastName = nameParts.slice(1).join(" ") || "User";
+    if (existingUser) {
+      // Never allow Google login to inherit an unverified local account
+      if (
+        existingUser.provider === "local" &&
+        existingUser.isEmailVerified !== true
+      ) {
+        throw new ApiError(
+          409,
+          "An unverified account already exists with this email. Please verify your email before using Google login."
+        );
+      }
 
-    user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password: crypto.randomBytes(32).toString("hex"),
-      provider: "google",
-      googleId: payload.sub,
-      profilePicture: payload.picture || null,
-      isEmailVerified: true,
-      emailVerifiedAt: new Date(),
-    });
+      // Never allow a different Google identity to take over an account
+      if (
+        existingUser.googleId &&
+        existingUser.googleId !== googleId
+      ) {
+        throw new ApiError(
+          409,
+          "This account is already linked to another Google account."
+        );
+      }
 
-    await Profile.create({ user: user._id });
+      // Only verified local accounts can be linked automatically
+      if (
+        existingUser.provider !== "local" ||
+        existingUser.isEmailVerified !== true
+      ) {
+        throw new ApiError(
+          409,
+          "This account cannot be linked automatically."
+        );
+      }
+
+      // 4. Atomically link the Google identity
+      user = await User.findOneAndUpdate(
+        {
+          _id: existingUser._id,
+          provider: "local",
+          isEmailVerified: true,
+          $or: [
+            { googleId: null },
+            { googleId: { $exists: false } },
+          ],
+        },
+        {
+          $set: { googleId },
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      ).select("+googleId");
+
+      // Handle concurrent linking requests
+      if (!user) {
+        user = await User.findOne({ googleId }).select("+googleId");
+      }
+
+      if (!user || user.email !== email) {
+        throw new ApiError(
+          409,
+          "Unable to safely link this Google account. Please try again."
+        );
+      }
+    } else {
+      // 5. No account exists: create a new Google account
+      const nameParts = (payload.name || "User User")
+        .trim()
+        .split(/\s+/);
+
+      const firstName = nameParts[0] || "User";
+      const lastName = nameParts.slice(1).join(" ") || "User";
+
+      try {
+        user = await User.create({
+          firstName,
+          lastName,
+          email,
+          password: crypto.randomBytes(32).toString("hex"),
+          provider: "google",
+          googleId,
+          profilePicture: payload.picture || null,
+          isEmailVerified: true,
+          emailVerifiedAt: new Date(),
+        });
+
+        await Profile.create({ user: user._id });
+
+        isNewUser = true;
+      } catch (error) {
+        // Handle concurrent Google registrations safely
+        if (error?.code !== 11000) {
+          throw error;
+        }
+
+        user = await User.findOne({ googleId }).select("+googleId");
+
+        if (!user) {
+          throw new ApiError(
+            409,
+            "An account with this email already exists. Please try signing in again."
+          );
+        }
+      }
+    }
   }
 
+  // 6. Check account status
   if (!user.isActive) {
     throw new ApiError(403, "This account has been deactivated");
   }
 
+  // 7. Generate tokens
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
   user.refreshToken = refreshToken;
   user.lastLogin = new Date();
+
   await user.save();
 
+  // 8. Return authenticated user
   const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
@@ -353,18 +460,18 @@ const googleLogin = asyncHandler(async (req, res) => {
         200,
         {
           user: loggedInUser,
-          token: accessToken,
           isNewUser,
         },
-        isNewUser ? "Google account created successfully" : "Google login successful"
+        isNewUser
+          ? "Google account created successfully"
+          : "Google login successful"
       )
     );
 });
 
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+  const incomingRefreshToken = req.cookies?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "No refresh token provided");
@@ -399,8 +506,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         new ApiResponse(
           200,
           {
-            accessToken: newAccessToken,
-            refreshToken: newRefreshToken,
           },
           "Tokens refreshed"
         )

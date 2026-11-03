@@ -1,6 +1,6 @@
 import express from 'express';
 
-import { verifyJWT } from '../middleware/authMiddleware.js';
+import { verifyJWT } from '../middlewares/authMiddleware.js';
 import {
     registerUser,
     sendOTP,

@@ -1,5 +1,5 @@
 import express from 'express';
-import { validate, idValidation } from '../middleware/validationMiddleware.js';
+import { validate, idValidation } from '../middlewares/validationMiddleware.js';
 import {
     togglePostLike,
     toggleCommentLike,

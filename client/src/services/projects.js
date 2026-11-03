@@ -9,12 +9,4 @@ export const projectService = {
     rejectRequest: (projectId, userId) => api.post(`/projects/${projectId}/reject/${userId}`),
     getProjectChat: (projectId) => api.get(`/projects/${projectId}/chat`),
     sendProjectMessage: (projectId, content) => api.post(`/projects/${projectId}/chat`, { content }),
-    getCurrentUserId: () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload._id;
-        }
-        return null;
-    }
 };

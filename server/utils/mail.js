@@ -124,8 +124,6 @@ const sendEmail = async ({ email, subject, mailgenContent }) => {
       html,
       text,
     });
-
-    console.log(`✅ Email sent to ${email}: ${info.messageId}`);
     return info;
   } catch (error) {
     console.error('❌ Email error:', error.message);
@@ -146,7 +144,7 @@ const testEmailConnection = async () => {
     console.log("✅ Gmail connection verified");
     return true;
   } catch (error) {
-    console.error("❌ Gmail connection failed:", error);
+    console.error("❌ Gmail connection failed:", error.message);
     return false;
   }
 };

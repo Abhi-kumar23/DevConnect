@@ -74,9 +74,9 @@ const getAllProjects = asyncHandler(async (req, res) => {
     }
 
     const projects = await Project.find(query)
+        .select("-pendingRequests")
         .populate('createdBy', 'firstName lastName profilePicture')
         .populate('members.user', 'firstName lastName profilePicture')
-        .populate('pendingRequests.user', 'firstName lastName profilePicture')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -97,16 +97,45 @@ const getAllProjects = asyncHandler(async (req, res) => {
 });
 
 // Get Single Project
+// Get Single Project
 const getProjectById = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
 
-    const project = await Project.findById(projectId)
-        .populate('createdBy', 'firstName lastName email profilePicture')
-        .populate('members.user', 'firstName lastName email profilePicture')
-        .populate('pendingRequests.user', 'firstName lastName email profilePicture');
+    const project = await Project.findById(projectId);
 
     if (!project) {
         throw new ApiError(404, "Project not found");
+    }
+
+    const isOwner =
+        project.createdBy.toString() === req.user._id.toString();
+
+    const isMember = project.isMember(req.user._id);
+
+    // Private projects are visible only to their owner and members
+    if (project.visibility === "private" && !isOwner && !isMember) {
+        throw new ApiError(404, "Project not found");
+    }
+
+    // Do not expose member email addresses
+    await project.populate(
+        "createdBy",
+        "firstName lastName profilePicture"
+    );
+
+    await project.populate(
+        "members.user",
+        "firstName lastName profilePicture"
+    );
+
+    // Only the owner should see pending join requests
+    if (isOwner) {
+        await project.populate(
+            "pendingRequests.user",
+            "firstName lastName profilePicture"
+        );
+    } else {
+        project.pendingRequests = [];
     }
 
     return res.status(200).json(

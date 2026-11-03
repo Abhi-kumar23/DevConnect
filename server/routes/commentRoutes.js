@@ -1,5 +1,5 @@
 import express from 'express';
-import { validate, commentValidation, idValidation } from '../middleware/validationMiddleware.js';
+import { validate, commentValidation, idValidation } from '../middlewares/validationMiddleware.js';
 import {
     getPostComments,
     addComment,

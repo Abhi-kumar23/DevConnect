@@ -24,11 +24,6 @@ const PrivateRoute = ({ children }) => {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
-  // Check if user exists and token is valid
-  if (!user && localStorage.getItem('token')) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
-  }
-
   return user ? children : <Navigate to="/login" />
 }
 

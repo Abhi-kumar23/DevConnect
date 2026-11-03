@@ -20,50 +20,47 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token')
-      if (token) {
-        try {
-          const response = await api.get('/auth/profile')
-          setUser(response.data.data);
-        } catch {
-          localStorage.removeItem('token')
-        }
+      try {
+        const response = await api.get('/auth/profile')
+        setUser(response.data.data)
+      } catch {
+        setUser(null)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
+
     loadUser()
   }, [])
 
 
   const login = async (email, password) => {
-  try {
-    const response = await api.post("/auth/login", { email, password });
-    const userData = response.data.data;
+    try {
+      const response = await api.post("/auth/login", { email, password });
+      const userData = response.data.data;
 
-    localStorage.setItem("token", userData.token);
-    setUser(userData.user);
+      setUser(userData.user);
 
-    toast.success("Login successful!");
-    navigate("/");
+      toast.success("Login successful!");
+      navigate("/");
 
-    return { success: true };
-  } catch (error) {
-    const message = error.response?.data?.message || "Login failed";
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || "Login failed";
 
-    if (error.response?.status === 403 && /verify your email/i.test(message)) {
-      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+      if (error.response?.status === 403 && /verify your email/i.test(message)) {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+      }
+
+      toast.error(message);
+      return { success: false, message };
     }
-
-    toast.error(message);
-    return { success: false, message };
-  }
-};
+  };
 
   const loginWithGoogle = async (idToken) => {
     try {
       const response = await api.post('/auth/google', { idToken })
       const userData = response.data.data
-      localStorage.setItem('token', userData.token)
       setUser(userData.user)
       toast.success('Login successful!')
       navigate('/')
@@ -76,20 +73,19 @@ export const AuthProvider = ({ children }) => {
   }
 
   const verifyEmail = async (email, otp) => {
-  try {
-    const response = await api.post("/auth/verify-otp", { email, otp });
-    const userData = response.data.data;
+    try {
+      const response = await api.post("/auth/verify-otp", { email, otp });
+      const userData = response.data.data;
 
-    localStorage.setItem("token", userData.token);
-    setUser(userData.user);
+      setUser(userData.user);
 
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "OTP verification failed",
-    };
-  }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "OTP verification failed",
+      };
+    }
   };
 
   const resendVerificationCode = async (email) => {
@@ -131,7 +127,6 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Clearing the local session is still the correct outcome if the server is unavailable.
     }
-    localStorage.removeItem('token')
     setUser(null)
     toast.success('Logged out')
     navigate('/login')

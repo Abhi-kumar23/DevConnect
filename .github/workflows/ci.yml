@@ -35,7 +35,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: /api
+          env:
+          VITE_API_URL: http://localhost:8000/api
+          VITE_SOCKET_URL: http://localhost:8000
 
   server:
     name: Server syntax check

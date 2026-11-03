@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiGithub, FiUsers, FiLock, FiUnlock, FiSend } from 'react-icons/fi';
@@ -7,6 +8,8 @@ import Loading from '../components/Common/Loading';
 import toast from 'react-hot-toast';
 
 const Projects = () => {
+    const { user } = useAuth();
+    const currentUserId = user?._id;
     const [filter, setFilter] = useState('all');
     const [showCreateForm, setShowCreateForm] = useState(false);
     const queryClient = useQueryClient();
@@ -45,11 +48,11 @@ const Projects = () => {
 
     const projects = data?.data?.data?.projects || data?.data?.projects || [];
     const isMember = (project) => {
-        return project.members?.some(m => m.user?._id === projectService.getCurrentUserId());
+        return project.members?.some(m => m.user?._id === currentUserId);
     };
 
     const hasPendingRequest = (project) => {
-        return project.pendingRequests?.some(r => r.user?._id === projectService.getCurrentUserId());
+        return project.pendingRequests?.some(r => r.user?._id === currentUserId);
     };
 
     if (isLoading) return <Loading />;
@@ -134,7 +137,7 @@ const Projects = () => {
                             <Link to={`/projects/${project._id}`} className="text-primary-600 text-sm hover:underline">
                                 View Details
                             </Link>
-                            {!isMember(project) && !hasPendingRequest(project) && project.createdBy?._id !== projectService.getCurrentUserId() && (
+                            {!isMember(project) && !hasPendingRequest(project) && project.createdBy?._id !== currentUserId && (
                                 <button
                                     onClick={() => {
                                         const message = prompt('Optional: Add a message to the project owner (max 500 chars)');

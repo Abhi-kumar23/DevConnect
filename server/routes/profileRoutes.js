@@ -1,7 +1,7 @@
 // routes/profileRoutes.js
 import express from 'express';
-import { verifyJWT } from '../middleware/authMiddleware.js';
-import { upload } from '../middleware/uploadMiddleware.js';
+import { verifyJWT } from '../middlewares/authMiddleware.js';
+import { upload } from '../middlewares/uploadMiddleware.js';
 import {
     createOrUpdateProfile,
     getMyProfile,
@@ -15,12 +15,13 @@ import {
 
 const router = express.Router();
 
+router.use(verifyJWT);
+
 // Public routes
 router.get('/all', getAllProfiles);
 router.get('/search', searchUsers);
 router.get('/user/:userId', getProfileByUserId);
 
-router.use(verifyJWT);
 
 router.route('/')
     .get(getMyProfile)

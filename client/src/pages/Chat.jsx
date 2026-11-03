@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { chatService } from '../services/chat'
 import Loading from '../components/Common/Loading'
 import { getAvatarUrl } from '../utils/avatar'
+import api from '../services/api';
 
 const EMPTY_CHATS = []
 
@@ -36,7 +37,30 @@ const Chat = () => {
 
   useEffect(() => {
     if (!user?._id) return undefined
-    const socket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, { auth: { token: localStorage.getItem('token') } })
+    const socket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
+      withCredentials: true,
+    })
+    let refreshingSocket = false
+
+    socket.on('connect_error', async (error) => {
+      if (error.message !== 'Unauthorized' || refreshingSocket) return
+
+      refreshingSocket = true
+
+      try {
+        await api.post('/auth/refresh-token')
+        socket.connect()
+      } catch {
+        socket.disconnect()
+
+        if (!window.location.pathname.includes('/login')) {
+          window.location.assign('/login')
+        }
+      } finally {
+        refreshingSocket = false
+      }
+    })
+
     socketRef.current = socket
     socket.on('receiveMessage', (message) => {
       const chatId = String(message.chat?._id || message.chat)
@@ -104,7 +128,7 @@ const Chat = () => {
   const selectChat = (chat) => {
     setSelectedChat(chat)
     socketRef.current?.emit('joinChat', chat._id)
-    chatService.markAsRead(chat._id).catch(() => {})
+    chatService.markAsRead(chat._id).catch(() => { })
   }
   const sendMessage = (event) => {
     event.preventDefault()

@@ -148,7 +148,7 @@ devconnect/
 ├── server/
 │   ├── config/             # DB, Redis, env, indexes
 │   ├── controllers/        # Route handlers
-│   ├── middleware/         # JWT, uploads, validation
+│   ├── middlewares/         # JWT, uploads, validation
 │   ├── models/             # Mongoose schemas
 │   ├── routes/             # Express routers
 │   ├── sockets/            # Socket.IO auth & events

@@ -18,7 +18,7 @@ const globalSearch = async (req, res, next) => {
 
     if (!type || type === "users") {
       results.users = await User.find({
-        $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
+        $or: [{ firstName: regex }, { lastName: regex }],
       }).select("firstName lastName profilePicture").limit(10);
     }
     if (!type || type === "profiles") {

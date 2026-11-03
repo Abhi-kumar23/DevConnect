@@ -19,7 +19,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import initSocket from "./sockets/chatSocket.js";
-import { createIndexes } from './config/dbIndexes.js';
+import { createIndexes, createGoogleIdIndex } from './config/dbIndexes.js';
 import { testEmailConnection } from "./utils/mail.js";
 
 
@@ -27,7 +27,7 @@ const app = express();
 app.use(cookieParser());
 
 // app.use(cors());
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3001")
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -38,6 +38,27 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+const csrfProtection = (req, res, next) => {
+  const safeMethods = ["GET", "HEAD", "OPTIONS"];
+
+  if (safeMethods.includes(req.method)) {
+    return next();
+  }
+
+  const origin = req.get("Origin");
+
+  if (!origin || !allowedOrigins.includes(origin)) {
+    return res.status(403).json({
+      success: false,
+      message: "Invalid request origin",
+    });
+  }
+
+  next();
+};
+
+app.use("/api", csrfProtection);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
@@ -106,10 +127,21 @@ const io = new Server(server, {
 app.set("io", io);
 initSocket(io);
 
-connectDB().then(async () => {
-  await connectRedis();
-  await testEmailConnection();
-  createIndexes();
-  const PORT = process.env.PORT || 8000;
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-});
+connectDB()
+  .then(async () => {
+    await connectRedis();
+    await testEmailConnection();
+
+    await createIndexes();
+    await createGoogleIdIndex();
+
+    const PORT = process.env.PORT || 8000;
+
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Server startup failed:", error);
+    process.exit(1);
+  });
