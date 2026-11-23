@@ -1,10 +1,25 @@
 class ApiError extends Error {
+    static badRequest(message, errors = []) {
+        return new ApiError(400, message, errors);
+    }
+
+    static forbidden(message = "Forbidden") {
+        return new ApiError(403, message);
+    }
+
+    static notFound(message = "Not found") {
+        return new ApiError(404, message);
+    }
+
+    static internal(message = "Internal server error") {
+        return new ApiError(500, message);
+    }
     constructor(
         statusCode,
-        message= "Something went wrong",
+        message = "Something went wrong",
         errors = [],
         stack = ""
-    ){
+    ) {
         super(message)
         this.statusCode = statusCode
         this.data = null
@@ -14,11 +29,11 @@ class ApiError extends Error {
 
         if (stack) {
             this.stack = stack
-        } else{
+        } else {
             Error.captureStackTrace(this, this.constructor)
         }
 
     }
 }
 
-export {ApiError}
+export { ApiError }

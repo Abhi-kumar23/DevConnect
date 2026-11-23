@@ -1,11 +1,11 @@
  import mongoose from 'mongoose';
- import Comment from '../models/Comment';
- import Post from '../models/Post';
- import Like from '../models/Like';
- import Notification from '../models/Notification';
- import ApiError from '../utils/ApiError';
- import ApiResponse from '../utils/ApiResponse';
- import asyncHandler from '../utils/asyncHandler';
+ import Comment from '../models/Comment.js';
+ import Post from '../models/Post.js';
+ import Like from '../models/Like.js';
+ import Notification from '../models/Notification.js';
+ import { ApiError } from '../utils/ApiError.js';
+ import { ApiResponse } from '../utils/ApiResponse.js';
+ import { asyncHandler } from '../utils/asyncHandler.js';
 
 /**
  * @desc    Get all comments for a post
@@ -181,116 +181,63 @@ const updateComment = asyncHandler(async (req, res) => {
  * @route   DELETE /api/comments/:commentId
  * @access  Private
  */
-const deleteComment = asyncHandler(async (req, res) => {
-    const { commentId } = req.params;
 
-    // Validate commentId
-    if (!mongoose.isValidObjectId(commentId)) {
-        throw ApiError.badRequest('Invalid comment ID');
-    }
+export const deleteComment = asyncHandler(async (req, res) => {
+  const { commentId } = req.params;
 
-    // Find comment
-    const comment = await Comment.findById(commentId);
+  if (!mongoose.isValidObjectId(commentId)) {
+    throw new ApiError(400, "Invalid comment ID");
+  }
 
-    if (!comment) {
-        throw ApiError.notFound('Comment not found');
-    }
+  const session = await mongoose.startSession();
 
-    // Check ownership
-    if (comment.user.toString() !== req.user._id.toString()) {
-        throw ApiError.forbidden('Not authorized to delete this comment');
-    }
+  try {
+    await session.withTransaction(async () => {
+      const comment = await Comment.findById(commentId).session(session);
 
-    // Start session for transaction
-    const session = await mongoose.startSession();
-    session.startTransaction();
+      if (!comment) {
+        throw new ApiError(404, "Comment not found");
+      }
 
-    try {
-        // Delete comment
-        await comment.deleteOne({ session });
+      if (String(comment.user) !== String(req.user._id)) {
+        throw new ApiError(
+          403,
+          "Not authorized to delete this comment"
+        );
+      }
 
-        // Delete all likes associated with this comment
-        await Like.deleteMany({
-            targetType: 'comment',
-            targetId: commentId
-        }).session(session);
+      // Delete likes on this comment and its embedded replies
+      await Like.deleteMany(
+        {
+          targetType: { $in: ["comment", "reply"] },
+          targetId: comment._id,
+        },
+        { session }
+      );
 
-        // Decrement post comments count
-        await Post.findByIdAndUpdate(comment.post, {
-            $inc: { commentsCount: -1 }
-        }).session(session);
+      // Decrement post comment count safely
+      await Post.updateOne(
+        {
+          _id: comment.post,
+          commentsCount: { $gt: 0 },
+        },
+        {
+          $inc: { commentsCount: -1 },
+        },
+        { session }
+      );
 
-        await session.commitTransaction();
-    } catch (error) {
-        await session.abortTransaction();
-        throw ApiError.internal('Error deleting comment');
-    } finally {
-        session.endSession();
-    }
+      await comment.deleteOne({ session });
+    });
+  } finally {
+    await session.endSession();
+  }
 
-    return res.status(200).json(
-        ApiResponse.success(null, 'Comment deleted successfully')
-    );
+  return res.status(200).json(
+    new ApiResponse(200, null, "Comment deleted successfully")
+  );
 });
 
-/**
- * @desc    Like/unlike comment
- * @route   POST /api/comments/:commentId/like
- * @access  Private
- */
-const toggleCommentLike = asyncHandler(async (req, res) => {
-    const { commentId } = req.params;
-
-    // Validate commentId
-    if (!mongoose.isValidObjectId(commentId)) {
-        throw ApiError.badRequest('Invalid comment ID');
-    }
-
-    // Find comment
-    const comment = await Comment.findById(commentId);
-    if (!comment) {
-        throw ApiError.notFound('Comment not found');
-    }
-
-    // Toggle like
-    const result = await Like.toggleLike(
-        req.user._id,
-        'comment',
-        commentId,
-        'Comment'
-    );
-
-    // Update comment likes count
-    if (result.liked) {
-        comment.likesCount += 1;
-        
-        // Create notification (if not self-like)
-        if (comment.user.toString() !== req.user._id.toString()) {
-            await Notification.createNotification({
-                recipient: comment.user,
-                sender: req.user._id,
-                type: 'like',
-                title: 'New Like',
-                message: `${req.user.firstName} ${req.user.lastName} liked your comment`,
-                data: {
-                    postId: comment.post,
-                    commentId: comment._id
-                }
-            });
-        }
-    } else {
-        comment.likesCount -= 1;
-    }
-
-    await comment.save();
-
-    return res.status(200).json(
-        ApiResponse.success({
-            liked: result.liked,
-            likesCount: comment.likesCount
-        }, result.liked ? 'Comment liked' : 'Comment unliked')
-    );
-});
 
 /**
  * @desc    Add reply to comment
@@ -349,6 +296,5 @@ export {
     addComment,
     updateComment,
     deleteComment,
-    toggleCommentLike,
     addReply
 };

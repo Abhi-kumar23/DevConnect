@@ -1,12 +1,42 @@
-// controllers/postController.js
+import mongoose from "mongoose";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import Comment from "../models/Comment.js";
+import Like from "../models/Like.js";
 import Notification from "../models/Notification.js";
-import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 
+import { deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js";
+
+// Attach the current user's like status to each post
+async function attachPostLikeState(posts, userId) {
+    const postIds = posts.map((post) => post._id);
+
+    if (!postIds.length) return posts;
+
+    const likes = await Like.find({
+        user: userId,
+        targetType: "post",
+        targetId: { $in: postIds },
+    })
+        .select("targetId")
+        .lean();
+
+    const likedPostIds = new Set(
+        likes.map((like) => String(like.targetId))
+    );
+
+    return posts.map((post) => ({
+        ...post,
+        isLiked: likedPostIds.has(String(post._id)),
+    }));
+}
+
+// Create post
 const createPost = asyncHandler(async (req, res) => {
     const content = req.body?.content?.trim();
     const visibility = req.body?.visibility || "public";
@@ -23,7 +53,10 @@ const createPost = asyncHandler(async (req, res) => {
     let imagePublicId = null;
 
     if (req.file) {
-        const image = await uploadOnCloudinary(req.file.path, "devconnect/posts");
+        const image = await uploadOnCloudinary(
+            req.file.path,
+            "devconnect/posts"
+        );
 
         if (!image?.secure_url) {
             throw new ApiError(500, "Image upload failed");
@@ -41,17 +74,23 @@ const createPost = asyncHandler(async (req, res) => {
         visibility,
     });
 
-    await post.populate("user", "firstName lastName profilePicture");
+    await post.populate(
+        "user",
+        "firstName lastName profilePicture"
+    );
 
-    return res
-        .status(201)
-        .json(new ApiResponse(201, post, "Post created successfully"));
+    return res.status(201).json(
+        new ApiResponse(201, post, "Post created successfully")
+    );
 });
 
-
+// Get feed
 const getFeed = asyncHandler(async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 10, 1),
+        50
+    );
     const skip = (page - 1) * limit;
 
     const user = await User.findById(req.user._id).select("connections");
@@ -64,13 +103,8 @@ const getFeed = asyncHandler(async (req, res) => {
 
     const visibilityFilter = {
         $or: [
-            // Everyone can see public posts
             { visibility: "public" },
-
-            // Users can always see their own posts
             { user: req.user._id },
-
-            // Connections can see connections-only posts
             {
                 user: { $in: connections },
                 visibility: "connections",
@@ -80,9 +114,13 @@ const getFeed = asyncHandler(async (req, res) => {
 
     const [posts, total] = await Promise.all([
         Post.find(visibilityFilter)
-            .select("content image visibility likes comments createdAt user")
-            .populate("user", "firstName lastName profilePicture")
-            .populate("comments.user", "firstName lastName profilePicture")
+            .select(
+                "user content image visibility likesCount commentsCount createdAt"
+            )
+            .populate(
+                "user",
+                "firstName lastName profilePicture"
+            )
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
@@ -91,11 +129,16 @@ const getFeed = asyncHandler(async (req, res) => {
         Post.countDocuments(visibilityFilter),
     ]);
 
+    const postsWithLikeState = await attachPostLikeState(
+        posts,
+        req.user._id
+    );
+
     return res.status(200).json(
         new ApiResponse(
             200,
             {
-                data: posts,
+                data: postsWithLikeState,
                 pagination: {
                     page,
                     limit,
@@ -108,191 +151,150 @@ const getFeed = asyncHandler(async (req, res) => {
     );
 });
 
-const canAccessPost = (post, currentUserId, connections) => {
-    const isOwner = post.user.toString() === currentUserId.toString();
-
-    if (isOwner || post.visibility === "public") {
-        return true;
-    }
-
-    return (
-        post.visibility === "connections" &&
-        connections.some(
-            (connectionId) =>
-                connectionId.toString() === post.user.toString()
-        )
-    );
-};
-
-
-const toggleLike = asyncHandler(async (req, res) => {
-    const { postId } = req.params;
-
-    const post = await Post.findById(postId);
-    if (!post) {
-        throw new ApiError(404, "Post not found");
-    }
-
-    const currentUser = await User.findById(req.user._id).select("connections");
-
-    if (!canAccessPost(post, req.user._id, currentUser.connections || [])) {
-        throw new ApiError(403, "You do not have access to this post");
-    }
-
-    const liked = post.likes.some((id) => id.toString() === req.user._id.toString());
-
-    if (liked) {
-        post.likes = post.likes.filter(id => id.toString() !== req.user._id.toString());
-    } else {
-        post.likes.push(req.user._id);
-
-        if (post.user.toString() !== req.user._id.toString()) {
-            await Notification.create({
-                recipient: post.user,
-                sender: req.user._id,
-                type: "like",
-                title: "New like",
-                message: `${req.user.firstName} liked your post`,
-                data: { postId: post._id },
-                actionUrl: "/",
-            });
-        }
-    }
-
-    await post.save();
-
-    return res.status(200).json(
-        new ApiResponse(200, {
-            liked: !liked,
-            likesCount: post.likes.length
-        }, liked ? "Post unliked" : "Post liked")
-    );
-});
-
-const addComment = asyncHandler(async (req, res) => {
-    const { postId } = req.params;
-    const text = String(req.body?.text || "").trim();
-
-    if (!text) {
-        throw new ApiError(400, "Comment text is required");
-    }
-
-    const post = await Post.findById(postId);
-    if (!post) {
-        throw new ApiError(404, "Post not found");
-    }
-
-    const currentUser = await User.findById(req.user._id).select("connections");
-    if (!canAccessPost(post, req.user._id, currentUser?.connections || [])) {
-        throw new ApiError(403, "You do not have access to this post");
-    }
-
-    const comment = {
-        user: req.user._id,
-        text
-    };
-
-    post.comments.push(comment);
-    await post.save();
-
-    if (post.user.toString() !== req.user._id.toString()) {
-        await Notification.create({
-            recipient: post.user,
-            sender: req.user._id,
-            type: "comment",
-            title: "New comment",
-            message: `${req.user.firstName} commented on your post`,
-            data: { postId: post._id },
-            actionUrl: "/",
-        });
-    }
-
-    await post.populate("comments.user", "firstName lastName profilePicture");
-
-    return res.status(200).json(
-        new ApiResponse(200, post.comments, "Comment added successfully")
-    );
-});
-
+// Delete post
 const deletePost = asyncHandler(async (req, res) => {
-    const { postId } = req.params;
+    const session = await mongoose.startSession();
+    let imagePublicId = null;
 
-    const post = await Post.findById(postId);
-    if (!post) {
-        throw new ApiError(404, "Post not found");
+    try {
+        await session.withTransaction(async () => {
+            const post = await Post.findOne({
+                _id: req.params.postId,
+                user: req.user._id,
+            })
+                .select("+imagePublicId")
+                .session(session);
+
+            if (!post) {
+                throw new ApiError(
+                    404,
+                    "Post not found or not owned by you"
+                );
+            }
+
+            imagePublicId = post.imagePublicId;
+
+            const comments = await Comment.find({
+                post: post._id,
+            })
+                .select("_id")
+                .session(session)
+                .lean();
+
+            const commentIds = comments.map(({ _id }) => _id);
+
+            await Like.deleteMany(
+                {
+                    $or: [
+                        {
+                            targetType: "post",
+                            targetId: post._id,
+                        },
+                        {
+                            targetType: {
+                                $in: ["comment", "reply"],
+                            },
+                            targetId: { $in: commentIds },
+                        },
+                    ],
+                },
+                { session }
+            );
+
+            await Comment.deleteMany(
+                { post: post._id },
+                { session }
+            );
+
+            await post.deleteOne({ session });
+        });
+    } finally {
+        await session.endSession();
     }
 
-    if (post.user.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "Not authorized to delete this post");
+    if (imagePublicId) {
+        await deleteFromCloudinary(imagePublicId);
     }
-
-    const postWithImageId = await Post.findById(postId).select("+imagePublicId");
-    await post.deleteOne();
-    if (postWithImageId?.imagePublicId) await deleteFromCloudinary(postWithImageId.imagePublicId);
 
     return res.status(200).json(
         new ApiResponse(200, null, "Post deleted successfully")
     );
 });
 
+// Get user's posts
 const getUserPosts = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+    const { userId } = req.params;
 
-  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
-  const skip = (page - 1) * limit;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 10, 1),
+        50
+    );
+    const skip = (page - 1) * limit;
 
-  const profileOwner = await User.findById(userId).select("connections");
+    const profileOwner = await User.findById(userId).select("connections");
 
-  if (!profileOwner) {
-    throw new ApiError(404, "User not found");
-  }
+    if (!profileOwner) {
+        throw new ApiError(404, "User not found");
+    }
 
-  const isOwner = userId === req.user._id.toString();
+    const isOwner = userId === req.user._id.toString();
 
-  const currentUser = await User.findById(req.user._id).select("connections");
+    const currentUser = await User.findById(req.user._id).select("connections");
 
-  const isConnected = currentUser.connections.some(
-    (connectionId) => connectionId.toString() === userId
-  );
+    const isConnected = (currentUser?.connections || []).some(
+        (connectionId) => connectionId.toString() === userId
+    );
 
-  const visibilityFilter = isOwner
-    ? { user: userId }
-    : {
-        user: userId,
-        $or: [
-          { visibility: "public" },
-          ...(isConnected ? [{ visibility: "connections" }] : []),
-        ],
-      };
+    const visibilityFilter = isOwner
+        ? { user: userId }
+        : {
+              user: userId,
+              $or: [
+                  { visibility: "public" },
+                  ...(isConnected
+                      ? [{ visibility: "connections" }]
+                      : []),
+              ],
+          };
 
-  const [posts, total] = await Promise.all([
-    Post.find(visibilityFilter)
-      .populate("user", "firstName lastName profilePicture")
-      .populate("comments.user", "firstName lastName profilePicture")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    const [posts, total] = await Promise.all([
+        Post.find(visibilityFilter)
+            .select(
+                "user content image visibility likesCount commentsCount createdAt"
+            )
+            .populate(
+                "user",
+                "firstName lastName profilePicture"
+            )
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
 
-    Post.countDocuments(visibilityFilter),
-  ]);
+        Post.countDocuments(visibilityFilter),
+    ]);
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        data: posts,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-        },
-      },
-      "User posts fetched successfully"
-    )
-  );
+    const postsWithLikeState = await attachPostLikeState(
+        posts,
+        req.user._id
+    );
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                data: postsWithLikeState,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    pages: Math.ceil(total / limit),
+                },
+            },
+            "User posts fetched successfully"
+        )
+    );
 });
 
-export { createPost, getFeed, toggleLike, addComment, deletePost, getUserPosts };
+export { createPost, getFeed, deletePost, getUserPosts, deletePost};

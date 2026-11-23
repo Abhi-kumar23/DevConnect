@@ -8,8 +8,10 @@ import {
     toggleCommentLike,
     addReply
 } from '../controllers/commentController.js';
+import { verifyJWT } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
+router.use(verifyJWT);
 
 
 // Get comments for a post and add comment

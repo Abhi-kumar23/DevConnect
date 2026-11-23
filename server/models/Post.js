@@ -6,6 +6,7 @@ const postSchema = new mongoose.Schema(
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+    index: true,
   },
   content: {
     type: String,
@@ -15,39 +16,36 @@ const postSchema = new mongoose.Schema(
   },
   image: {
     type: String,
+    default: null,
   },
   imagePublicId: {
     type: String,
     select: false,
   },
+
   visibility: {
     type: String,
     enum: ['public', 'connections'],
-    default: 'public'
+    default: 'public',
+    index: true,
   },
-  likes: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-  ],
-  comments: [
-    {
-      user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-      text: String,
-      createdAt: {
-        type: Date,
-        default: Date.now,
-      },
-    },
-  ],
+
+  likeCount:{
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+
+  commentsCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  }, 
 },
 { timestamps: true }
 );
 
-const Post = mongoose.model("Post", postSchema);
+postSchema.index({user:1, visibility:1, createdAt: -1});
+postSchema.index({visibility: 1, createdAt: -1});
 
-export default Post;
+export default mongoose.model("Post", postSchema);

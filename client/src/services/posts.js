@@ -11,8 +11,9 @@ export const postsService = {
     return api.post('/posts', data);
   },
 
-  likePost: (postId) => api.post(`/posts/${postId}/like`),
-  commentPost: (postId, text) => api.post(`/posts/${postId}/comment`, { text }),
+  likePost: (postId) => api.post(`/likes/post/${postId}`),
+  getComments: (postId, page = 1, limit = 20) => api.get(`/comments/post/${postId}?page=${page}&limit=${limit}`),
+  commentPost: (postId, content ) => api.post(`/comments/post/${postId}`, { content }),
 
   deletePost: (postId) => api.delete(`/posts/${postId}`),
 

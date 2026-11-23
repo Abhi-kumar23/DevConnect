@@ -1,71 +1,61 @@
 import mongoose from "mongoose";
 
-const likeSchema = new mongoose.Schema({
+const likeSchema = new mongoose.Schema(
+  {
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
-        index: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
     },
     targetType: {
-        type: String,
-        enum: ['post', 'comment', 'reply'],
-        required: true
+      type: String,
+      enum: ["post", "comment", "reply"],
+      required: true,
     },
     targetId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        refPath: 'targetModel'
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: "targetModel",
+    },
+    replyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
     targetModel: {
-        type: String,
-        required: true,
-        enum: ['Post', 'Comment']
-    }
-}, {
-    timestamps: true
+      type: String,
+      enum: ["Post", "Comment"],
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+likeSchema.pre("validate", function () {
+  const isReply = this.targetType === "reply";
+
+  if (isReply && !this.replyId) {
+    this.invalidate("replyId", "A reply like requires replyId");
+  }
+
+  if (!isReply && this.replyId) {
+    this.invalidate("replyId", "Only reply likes may contain replyId");
+  }
+
+  if (this.targetType === "post" && this.targetModel !== "Post") {
+    this.invalidate("targetModel", "Post likes must target Post");
+  }
+
+  if (["comment", "reply"].includes(this.targetType) && this.targetModel !== "Comment") {
+    this.invalidate("targetModel", "Comment and reply likes must target Comment");
+  }
 });
 
-// Compound index to ensure unique likes
-likeSchema.index({ user: 1, targetType: 1, targetId: 1 }, { unique: true });
+likeSchema.index(
+  { user: 1, targetType: 1, targetId: 1, replyId: 1 },
+  { unique: true }
+);
 
-// Index for counting likes on targets
-likeSchema.index({ targetType: 1, targetId: 1, createdAt: -1 });
+likeSchema.index({ targetType: 1, targetId: 1, replyId: 1, createdAt: -1 });
 
-// Static method to toggle like
-likeSchema.statics.toggleLike = async function(userId, targetType, targetId, targetModel) {
-    const existingLike = await this.findOne({
-        user: userId,
-        targetType,
-        targetId
-    });
-
-    if (existingLike) {
-        await existingLike.deleteOne();
-        return { liked: false, likeId: null };
-    }
-
-    const like = await this.create({
-        user: userId,
-        targetType,
-        targetId,
-        targetModel
-    });
-
-    return { liked: true, likeId: like._id };
-};
-
-// Static method to get like count
-likeSchema.statics.getLikeCount = async function(targetType, targetId) {
-    return this.countDocuments({ targetType, targetId });
-};
-
-// Static method to check if user liked
-likeSchema.statics.hasLiked = async function(userId, targetType, targetId) {
-    const like = await this.findOne({ user: userId, targetType, targetId });
-    return !!like;
-};
-
-const Like = mongoose.model('Like', likeSchema);
-export default Like;
-
+export default mongoose.model("Like", likeSchema);
