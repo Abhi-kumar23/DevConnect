@@ -56,15 +56,16 @@ const sendMessage = asyncHandler(async (req, res) => {
 
   await message.populate("sender", userFields);
   const recipient = chat.participants.find((id) => id.toString() !== req.user._id.toString());
-  await Notification.create({
+  await Notification.upsertNotification({
     recipient,
     sender: req.user._id,
+    dedupeKey: `message:${chat._id}:${recipient}`,
     type: "message",
     title: "New message",
     message: `${req.user.firstName}: ${text.slice(0, 50)}${text.length > 50 ? "…" : ""}`,
     data: { chatId: chat._id },
     actionUrl: `/chat/${chat._id}`,
-  });
+});
 
   const io = req.app.get("io");
   // The sender already receives the message in the HTTP response. Broadcasting

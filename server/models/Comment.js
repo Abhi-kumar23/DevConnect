@@ -11,7 +11,7 @@ const editHistorySchema = new mongoose.Schema(
 const replySchema = new mongoose.Schema(
     {
         user: {
-            type: mongoose.Schema.type.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
@@ -71,5 +71,12 @@ const commentSchema = new mongoose.Schema(
 
 
 commentSchema.index({ post: 1, createdAt: -1 });
+
+commentSchema.methods.addReply = async function (userId, content) {
+  this.replies.push({ user: userId, content });
+  await this.save();
+  
+  return this.replies[this.replies.length - 1];
+};
 
 export default mongoose.model("Comment", commentSchema);

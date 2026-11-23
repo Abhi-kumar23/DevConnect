@@ -189,14 +189,15 @@ const sendJoinRequest = asyncHandler(async (req, res) => {
     await project.save();
 
     // Create notification for project owner
-    await Notification.create({
+    await Notification.upsertNotification({
         recipient: project.createdBy,
         sender: req.user._id,
-        type: "connection_request", // Reuse or add new type
+        dedupeKey: `project-join:${req.user._id}:${project._id}`,
+        type: "project_join_request",
         title: "New Project Join Request",
-        message: `${req.user.firstName} wants to join your project "${project.title}"`,
-        data: { projectId: project._id },
-        actionUrl: `/projects/${project._id}`
+        message: `${req.user.firstName} ${req.user.lastName} requested to join your project`,
+        data: { projectId: project._id, userId: req.user._id },
+        actionUrl: `/projects/${project._id}`,
     });
 
     return res.status(200).json(
@@ -239,14 +240,15 @@ const acceptJoinRequest = asyncHandler(async (req, res) => {
 
     // Create notification for user
     const requester = await User.findById(userId);
-    await Notification.create({
+    await Notification.upsertNotification({
         recipient: userId,
         sender: req.user._id,
+        dedupeKey: `project-join-accepted:${req.user._id}:${userId}:${project._id}`,
         type: "connection_accept",
         title: "Join Request Accepted",
         message: `${req.user.firstName} accepted your request to join "${project.title}"`,
         data: { projectId: project._id },
-        actionUrl: `/projects/${project._id}/chat`
+        actionUrl: `/projects/${project._id}/chat`,
     });
 
     return res.status(200).json(

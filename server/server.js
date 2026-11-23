@@ -118,24 +118,39 @@ export const createApp = () => {
     });
 
     // Error handler
+    app.use((req, res, next) => {
+        next(
+            new ApiError(
+                404,
+                `Route not found: ${req.method} ${req.originalUrl}`
+            )
+        );
+    });
+
     app.use((err, req, res, next) => {
-        if (res.headersSent) {
-            return next(err);
+        if (res.headersSent) return next(err);
+
+        if (err.name === "CastError") {
+            err = new ApiError(400, "Invalid resource ID");
         }
 
-        if (err.name === "MulterError") {
-            return res.status(400).json({
-                success: false,
-                message: err.code === "LIMIT_FILE_SIZE"
-                    ? "Images must be 5 MB or smaller"
-                    : err.message,
-            });
+        if (err.code === 11000) {
+            err = new ApiError(409, "A record with that value already exists");
         }
 
-        const statusCode = err.statusCode || err.status || 500;
+        if (err.name === "ValidationError") {
+            err = new ApiError(
+                422,
+                "Request validation failed",
+                Object.values(err.errors).map((item) => item.message)
+            );
+        }
+
+        const statusCode = err.statusCode || 500;
 
         return res.status(statusCode).json({
             success: false,
+            statusCode,
             message: err.message || "Something went wrong",
             errors: err.errors || [],
         });

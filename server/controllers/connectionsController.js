@@ -11,7 +11,7 @@ const hasUserId = (ids, userId) => ids.some((id) => id.toString() === userId.toS
 // Send Connection Request
 const sendRequest = asyncHandler(async (req, res) => {
     const { userId } = req.params;
-    
+
     if (!userId) {
         throw new ApiError(400, "User ID is required");
     }
@@ -27,7 +27,7 @@ const sendRequest = asyncHandler(async (req, res) => {
 
     // Get current user with connections
     const currentUser = await User.findById(req.user._id);
-    
+
     // Check if already connected (bidirectional check)
     if (hasUserId(targetUser.connections, req.user._id) ||
         hasUserId(currentUser.connections, targetUser._id)) {
@@ -49,16 +49,15 @@ const sendRequest = asyncHandler(async (req, res) => {
     await targetUser.save();
 
     // Create notification
-    await Notification.create({
-        recipient: userId,
+    await Notification.upsertNotification({
+        recipient: recipientId,
         sender: req.user._id,
+        dedupeKey: `connection-request:${req.user._id}:${recipientId}`,
         type: "connection_request",
         title: "New Connection Request",
         message: `${req.user.firstName} ${req.user.lastName} sent you a connection request`,
-        data: {
-            userId: req.user._id
-        },
-        actionUrl: `/connections`
+        data: { senderId: req.user._id },
+        actionUrl: `/profile/${req.user._id}`,
     });
 
     return res.status(200).json(
@@ -71,7 +70,7 @@ const acceptRequest = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
     const currentUser = await User.findById(req.user._id);
-    
+
     if (!hasUserId(currentUser.pendingRequests, userId)) {
         throw new ApiError(400, "No pending request from this user");
     }
@@ -93,16 +92,15 @@ const acceptRequest = asyncHandler(async (req, res) => {
     }
 
     // Create notification for the requester
-    await Notification.create({
-        recipient: userId,
+    await Notification.upsertNotification({
+        recipient: requesterId,
         sender: req.user._id,
-        type: "connection_accept",
+        dedupeKey: `connection-accepted:${req.user._id}:${requesterId}`,
+        type: "connection_accepted",
         title: "Connection Request Accepted",
-        message: `${currentUser.firstName} ${currentUser.lastName} accepted your connection request`,
-        data: {
-            userId: req.user._id
-        },
-        actionUrl: `/profile/${req.user._id}`
+        message: `${req.user.firstName} ${req.user.lastName} accepted your connection request`,
+        data: { userId: req.user._id },
+        actionUrl: `/profile/${req.user._id}`,
     });
 
     return res.status(200).json(
@@ -115,11 +113,11 @@ const rejectRequest = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(req.user._id);
-    
+
     if (!hasUserId(user.pendingRequests, userId)) {
         throw new ApiError(400, "No pending request from this user");
     }
-    
+
     user.pendingRequests = user.pendingRequests.filter(
         id => id.toString() !== userId
     );
@@ -132,24 +130,36 @@ const rejectRequest = asyncHandler(async (req, res) => {
 
 // Get All Connections
 const getConnections = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id)
-        .populate("connections", "firstName lastName profilePicture");
-    
-    // Also get profile info for each connection
-    const connectionsWithProfiles = await Promise.all(
-        user.connections.map(async (connection) => {
-            const profile = await Profile.findOne({ user: connection._id });
-            return {
-                ...connection.toObject(),
-                headline: profile?.headline || profile?.title || "",
-                skills: profile?.skills || []
-            };
-        })
-    );
+  const user = await User.findById(req.user._id)
+    .populate("connections", "firstName lastName profilePicture")
+    .lean();
 
-    return res.status(200).json(
-        new ApiResponse(200, connectionsWithProfiles, "Connections fetched successfully")
-    );
+  const connections = (user?.connections || []).filter(Boolean);
+  const connectionIds = connections.map((connection) => connection._id);
+
+  const profiles = await Profile.find({
+    user: { $in: connectionIds },
+  })
+    .select("user headline skills")
+    .lean();
+
+  const profileByUserId = new Map(
+    profiles.map((profile) => [String(profile.user), profile])
+  );
+
+  const data = connections.map((connection) => {
+    const profile = profileByUserId.get(String(connection._id));
+
+    return {
+      ...connection,
+      headline: profile?.headline || "",
+      skills: profile?.skills || [],
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, data, "Connections fetched successfully")
+  );
 });
 
 // Get Pending Requests
@@ -165,33 +175,33 @@ const getPendingRequests = asyncHandler(async (req, res) => {
 // Get Connection Suggestions (Improved)
 const getSuggestions = asyncHandler(async (req, res) => {
     const currentUser = await User.findById(req.user._id);
-    
+
     // Get all user IDs to exclude
     const excludedIds = [
         req.user._id,
         ...currentUser.connections.map(id => id.toString()),
         ...currentUser.pendingRequests.map(id => id.toString())
     ];
-    
+
     // Also exclude users who have sent requests to current user
     const usersWithRequestsToMe = await User.find({
         pendingRequests: { $in: [req.user._id] }
     }).select('_id');
-    
+
     usersWithRequestsToMe.forEach(user => {
         excludedIds.push(user._id.toString());
     });
-    
+
     // Get unique IDs
     const uniqueExcludedIds = [...new Set(excludedIds)];
-    
+
     // Find users not in excluded list
     const suggestions = await User.find({
         _id: { $nin: uniqueExcludedIds }
     })
-    .select("firstName lastName profilePicture")
-    .limit(10);
-    
+        .select("firstName lastName profilePicture")
+        .limit(10);
+
     // Get profile information for suggestions
     const suggestionsWithProfiles = await Promise.all(
         suggestions.map(async (user) => {

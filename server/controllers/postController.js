@@ -297,4 +297,4 @@ const getUserPosts = asyncHandler(async (req, res) => {
     );
 });
 
-export { createPost, getFeed, deletePost, getUserPosts, deletePost};
+export { createPost, getFeed, getUserPosts, deletePost};

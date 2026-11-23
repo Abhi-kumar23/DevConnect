@@ -53,7 +53,17 @@ likeSchema.pre("validate", function () {
 
 likeSchema.index(
   { user: 1, targetType: 1, targetId: 1, replyId: 1 },
-  { unique: true }
+  {
+    unique: true,
+    name: "user_targetType_targetId_replyId_unique",
+  }
+);
+
+likeSchema.index(
+  { targetType: 1, targetId: 1, replyId: 1, createdAt: -1 },
+  {
+    name: "targetType_targetId_replyId_createdAt",
+  }
 );
 
 likeSchema.index({ targetType: 1, targetId: 1, replyId: 1, createdAt: -1 });

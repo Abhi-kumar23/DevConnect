@@ -1,60 +1,60 @@
-import express from 'express';
-import { validate, commentValidation, idValidation } from '../middlewares/validationMiddleware.js';
+import express from "express";
 import {
-    getPostComments,
-    addComment,
-    updateComment,
-    deleteComment,
-    toggleCommentLike,
-    addReply
-} from '../controllers/commentController.js';
-import { verifyJWT } from '../middlewares/authMiddleware.js';
+  validate,
+  commentValidation,
+  idValidation,
+  paginationValidation,
+} from "../middlewares/validationMiddleware.js";
+
+import {
+  getPostComments,
+  addComment,
+  updateComment,
+  deleteComment,
+  addReply,
+} from "../controllers/commentController.js";
+
+import { verifyJWT } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
 router.use(verifyJWT);
 
-
-// Get comments for a post and add comment
-router.route('/:postId')
-    .get(
-        idValidation.paramId,
-        validate,
-        getPostComments
-    )
-    .post(
-        idValidation.paramId,
-        commentValidation.add,
-        validate,
-        addComment
-    );
-
-// Update and delete comment
-router.route('/:commentId')
-    .put(
-        idValidation.paramId,
-        commentValidation.update,
-        validate,
-        updateComment
-    )
-    .delete(
-        idValidation.paramId,
-        validate,
-        deleteComment
-    );
-
-// Like/unlike comment
-router.post('/:commentId/like',
-    idValidation.paramId,
+router
+  .route("/:postId")
+  .get(
+    idValidation.postId,
+    ...paginationValidation(),
     validate,
-    toggleCommentLike
-);
-
-// Add reply to comment
-router.post('/:commentId/reply',
-    idValidation.paramId,
+    getPostComments
+  )
+  .post(
+    idValidation.postId,
     commentValidation.add,
     validate,
-    addReply
+    addComment
+  );
+
+router
+  .route("/:commentId")
+  .put(
+    idValidation.commentId,
+    commentValidation.update,
+    validate,
+    updateComment
+  )
+  .delete(
+    idValidation.commentId,
+    validate,
+    deleteComment
+  );
+
+router.post(
+  "/:commentId/reply",
+  idValidation.commentId,
+  commentValidation.add,
+  validate,
+  addReply
 );
 
 export default router;

@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema({
+    dedupeKey: {
+        type: String,
+        default: null,
+    },
     recipient: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -63,7 +67,7 @@ notificationSchema.index({ recipient: 1, type: 1 });
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Static method to create notification
-notificationSchema.statics.createNotification = async function({
+notificationSchema.statics.createNotification = async function ({
     recipient,
     sender = null,
     type,
@@ -95,10 +99,10 @@ notificationSchema.statics.createNotification = async function({
 };
 
 // Static method to mark as read
-notificationSchema.statics.markAsRead = async function(notificationId, userId) {
+notificationSchema.statics.markAsRead = async function (notificationId, userId) {
     return this.findOneAndUpdate(
         { _id: notificationId, recipient: userId },
-        { 
+        {
             isRead: true,
             readAt: Date.now()
         },
@@ -107,19 +111,59 @@ notificationSchema.statics.markAsRead = async function(notificationId, userId) {
 };
 
 // Static method to mark all as read
-notificationSchema.statics.markAllAsRead = async function(userId) {
+notificationSchema.statics.markAllAsRead = async function (userId) {
     return this.updateMany(
         { recipient: userId, isRead: false },
-        { 
+        {
             isRead: true,
             readAt: Date.now()
         }
     );
 };
 
+notificationSchema.index(
+    { recipient: 1, dedupeKey: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            dedupeKey: { $type: "string" },
+        },
+    }
+);
+
 // Static method to get unread count
-notificationSchema.statics.getUnreadCount = async function(userId) {
+notificationSchema.statics.getUnreadCount = async function (userId) {
     return this.countDocuments({ recipient: userId, isRead: false });
+};
+
+
+notificationSchema.statics.upsertNotification = function ({
+    recipient,
+    dedupeKey,
+    ...payload
+}) {
+    if (!recipient || !dedupeKey) {
+        throw new Error("recipient and dedupeKey are required");
+    }
+    return this.findOneAndUpdate(
+        { recipient, dedupeKey },
+        {
+            $set: {
+                ...payload,
+                isRead: false,
+                readAt: null,
+            },
+            $setOnInsert: {
+                recipient,
+                dedupeKey,
+            },
+        },
+        {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+        }
+    );
 };
 
 const Notification = mongoose.model('Notification', notificationSchema);
